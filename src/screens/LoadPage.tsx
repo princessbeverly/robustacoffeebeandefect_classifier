@@ -1,7 +1,22 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { StyleSheet, Text, View, Image } from 'react-native';
 
-const LoadPage = () => {
+const LoadPage = ({ navigation }: any) => {
+    useEffect(() => {
+        const prepare = async () => {
+          try {
+            // simulate loading for now:
+            await new Promise(resolve => setTimeout(resolve, 2000));
+          } catch (e) {
+            console.warn(e);
+          } finally {
+            navigation.replace('BeanCamera'); // replace so user can't go back to load screen
+          }
+        };
+
+        prepare();
+      }, [navigation]);
+
   return (
     <View style={styles.container}>
       <Image
@@ -18,12 +33,14 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     justifyContent: 'center',
-    alignItems: 'center'
+    alignItems: 'center',
+    backgroundColor: '#ffffff',
   },
   semiboldText: {
       fontFamily: 'Poppins-SemiBold',
       fontSize: 25,
-      marginBottom: -10
+      textDecorationStyle: 'solid',
+      marginBottom: -15
   },
   regularText: {
       fontFamily: 'Poppins-Regular'
@@ -48,11 +65,9 @@ const styles = StyleSheet.create({
   logo: {
       width: 118.09,
       height: 121.51,
-      resizeMode: 'contain'
+      resizeMode: 'contain',
+      marginBottom: -15
       }
-
-
 });
-
 
 export default LoadPage;
