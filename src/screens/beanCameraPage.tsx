@@ -71,18 +71,23 @@ const beanCameraPage = () => {
 
                 {/* Container for camera button (At the bottom) */}
                 <View style={styles.cameraButtonContainer}>
-                    <Image
-                        source={require('../../assets/icons/folder_icon.png')}
-                        style={styles.extraIcons}
-                    />
+                    <View style={styles.iconShadow}>
+                        <Image
+                            source={require('../../assets/icons/folder_icon.png')}
+                            style={styles.extraIcons}
+                        />
+                    </View>
+
                     <Image
                         source={require('../../assets/icons/camera_button.png')}
                         style={styles.cameraButton}
                     />
-                    <Image
-                        source={require('../../assets/icons/results_icon.png')}
-                        style={styles.extraIcons}
-                    />
+                    <View style={styles.iconShadow}>
+                        <Image
+                            source={require('../../assets/icons/results_icon.png')}
+                            style={styles.extraIcons}
+                        />
+                    </View>
                 </View>
             </View>
         </View>
@@ -150,7 +155,20 @@ const styles = StyleSheet.create({
         resizeMode: 'contain',
         width: 18,
         height: 18
-        }
+        },
+    iconShadow: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 }, // 4px down
+        shadowOpacity: 0.5,
+        shadowRadius: 5,
+
+        // For Android
+        elevation: 10,
+
+        // Ensure the shadow isn't cut off
+        backgroundColor: 'transparent',
+        overflow: 'visible',
+    },
 });
 
 export default beanCameraPage;
