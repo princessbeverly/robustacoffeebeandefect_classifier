@@ -1,15 +1,33 @@
 
-import React, { useEffect } from 'react';
-import { StyleSheet, Text, View, Image } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { StyleSheet, Text, View, Image, TouchableOpacity, Alert } from 'react-native';
 import { Camera, useCameraDevice, useCameraPermission } from 'react-native-vision-camera';
+import DropShadow from "react-native-drop-shadow";
 
 const beanCameraPage = () => {
+    const camera = useRef<Camera>(null);
     const device = useCameraDevice('back');
     const { hasPermission, requestPermission } = useCameraPermission();
 
     useEffect(() => {
         requestPermission();
     }, []);
+
+    const onTakePhoto = async () => {
+        try {
+            if (camera.current == null) return;
+
+            const photo = await camera.current.takePhoto({
+                flash: 'off'
+            });
+
+            console.log("Photo captured:", photo.path);
+            Alert.alert("Captured!", `Photo saved at: ${photo.path}`);
+            // You can now navigate to your results page with the photo.path
+        } catch (e) {
+            console.error("Failed to take photo:", e);
+        }
+    };
 
     if (!hasPermission) return <Text>No access to camera</Text>;
     if (device == null) return <Text>No Camera Device</Text>;
@@ -18,9 +36,11 @@ const beanCameraPage = () => {
         <View style={styles.container}>
             {/* LAYER 1 :: The Camera [Background] */}
             <Camera
+                ref={camera}
                 style={StyleSheet.absoluteFill}
                 device={device}
                 isActive={true}
+                photo={true} // Required to capture images
             />
 
             {/* LAYER 2 :: The Overlay*/}
@@ -71,23 +91,36 @@ const beanCameraPage = () => {
 
                 {/* Container for camera button (At the bottom) */}
                 <View style={styles.cameraButtonContainer}>
-                    <View style={styles.iconShadow}>
-                        <Image
-                            source={require('../../assets/icons/folder_icon.png')}
-                            style={styles.extraIcons}
-                        />
-                    </View>
 
-                    <Image
-                        source={require('../../assets/icons/camera_button.png')}
-                        style={styles.cameraButton}
-                    />
-                    <View style={styles.iconShadow}>
+                    <TouchableOpacity onPress={() => console.log('Open Gallery')}>
+                        <DropShadow
+                          style={styles.shadowStyle}
+                        >
+                            <Image
+                                source={require('../../assets/icons/folder_icon.png')}
+                                style={styles.extraIcons}
+                            />
+                        </DropShadow>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity onPress={onTakePhoto} activeOpacity={0.7}>
                         <Image
-                            source={require('../../assets/icons/results_icon.png')}
-                            style={styles.extraIcons}
+                            source={require('../../assets/icons/camera_button.png')}
+                            style={styles.cameraButton}
                         />
-                    </View>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity onPress={() => console.log('View Results')}>
+                        <DropShadow
+                          style={styles.shadowStyle}
+                        >
+                            <Image
+                                source={require('../../assets/icons/results_icon.png')}
+                                style={styles.extraIcons}
+                            />
+                        </DropShadow>
+                    </TouchableOpacity>
+
                 </View>
             </View>
         </View>
@@ -99,25 +132,22 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: '#000',
     },
+    colorOverlay: {
+        alignItems: 'center',
+        padding: 20,
+    },
     overlay: {
         ...StyleSheet.absoluteFillObject,
         alignItems: 'center',
         justifyContent: 'center',
         padding: 5,
     },
-    colorOverlay: {
-        ...StyleSheet.absoluteFillObject,
-        alignItems: 'center',
-        justifyContent: 'flex-start',
-        marginTop: 100,
-        padding: 40,
-    },
     semiboldText: {
       fontFamily: 'Poppins-Medium',
       fontSize: 12,
       color: '#FFFFFF',
       textShadowColor: 'rgba(0, 0, 0, 0.75)',
-      textShadowOffset: { width: 1, height: 1 }, // Moves shadow 1px right and 1px down
+      textShadowOffset: { width: 1, height: 1 },
       textShadowRadius: 2,
       },
     cameraBorder: {
@@ -131,44 +161,37 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: 60, // Space from the bottom of the screen
+        marginBottom: 60,
         padding: 30,
     },
     cameraButton: {
-        width: 50,
-        height: 50,
+        width: 70,
+        height: 70,
         resizeMode: 'contain',
     },
     extraIcons: {
         width: 30,
         height: 30,
-        resizeMode: 'contain',
+        resizeMode: 'contain'
     },
-    // image of the one line logo
     logo: {
         width: 249,
         height: 37.48,
         resizeMode: 'contain',
-        marginTop: 40,
+        marginTop: 50,
+        marginBottom: 10
     },
     circles: {
         resizeMode: 'contain',
         width: 18,
         height: 18
-        },
-    iconShadow: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 }, // 4px down
-        shadowOpacity: 0.5,
-        shadowRadius: 5,
-
-        // For Android
-        elevation: 10,
-
-        // Ensure the shadow isn't cut off
-        backgroundColor: 'transparent',
-        overflow: 'visible',
     },
+    shadowStyle: {
+        shadowColor: "#000",
+        shadowOffset: { width: 2, height: 2 },
+        shadowOpacity: 0.5,
+        shadowRadius: 2,
+    }
 });
 
 export default beanCameraPage;
