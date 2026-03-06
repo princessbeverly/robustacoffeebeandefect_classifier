@@ -6,6 +6,28 @@ import jpeg from 'jpeg-js';
 let model = null;
 
 const CLASS_NAMES = ['broken-chipped-cut', 'dried-cherry-pod', 'floater', 'foreign-matter', 'full-black', 'full-sour', 'fungus-damage', 'good', 'husk', 'immature', 'parchment', 'partial-black', 'partial-sour', 'severe-insect-damage', 'shell', 'slight-insect-damage', 'withered'];
+
+// Category mapping: good | cat1 (primary defects) | cat2 (secondary defects). Export for UI.
+export const CLASS_TO_CATEGORY = {
+  good: 'good',
+  'full-black': 'cat1',
+  'full-sour': 'cat1',
+  'dried-cherry-pod': 'cat1',
+  'fungus-damage': 'cat1',
+  'severe-insect-damage': 'cat1',
+  'foreign-matter': 'cat1',
+  'partial-black': 'cat2',
+  'partial-sour': 'cat2',
+  husk: 'cat2',
+  parchment: 'cat2',
+  'slight-insect-damage': 'cat2',
+  floater: 'cat2',
+  immature: 'cat2',
+  withered: 'cat2',
+  shell: 'cat2',
+  'broken-chipped-cut': 'cat2',
+};
+
 const CONFIDENCE_THRESHOLD = 0.5;
 const NMS_IOU_THRESHOLD = 0.5; // Suppress detections that overlap more than this with a higher-confidence box
 const INPUT_SIZE = 640; 
@@ -242,6 +264,8 @@ function parseDetections(modelOutput) {
       if (confidence < CONFIDENCE_THRESHOLD) continue;
 
       const classIdx = Math.floor(classId);
+      const label = CLASS_NAMES[classIdx] ?? `Class ${classIdx}`;
+      const category = CLASS_TO_CATEGORY[label] ?? 'cat2';
       detections.push({
         x1: Math.max(0, Math.min(1, x1)),
         y1: Math.max(0, Math.min(1, y1)),
@@ -249,7 +273,8 @@ function parseDetections(modelOutput) {
         y2: Math.max(0, Math.min(1, y2)),
         confidence,
         classId: classIdx,
-        label: CLASS_NAMES[classIdx] ?? `Class ${classIdx}`,
+        label,
+        category, // 'good' | 'cat1' | 'cat2'
       });
     }
 
@@ -260,6 +285,27 @@ function parseDetections(modelOutput) {
     console.error('Detection parsing error:', error);
     return [];
   }
+}
+
+/**
+ * Returns total counts per class and per category from a list of detections.
+ * @param {Array<{ label: string, category: string }>} detections - from parseDetections / runModelOnImage
+ * @returns {{ byClass: Record<string, number>, byCategory: Record<string, number> }}
+ */
+export function getDetectionSummary(detections) {
+  const byClass = {};
+  const byCategory = { good: 0, cat1: 0, cat2: 0 };
+  for (const d of detections) {
+    const label = d.label ?? CLASS_NAMES[d.classId];
+    if (label) {
+      byClass[label] = (byClass[label] ?? 0) + 1;
+    }
+    const cat = d.category ?? CLASS_TO_CATEGORY[label];
+    if (cat && byCategory[cat] !== undefined) {
+      byCategory[cat]++;
+    }
+  }
+  return { byClass, byCategory };
 }
 
 // High resolution inference for captured photos
