@@ -1,13 +1,25 @@
 import { loadTensorflowModel } from 'react-native-fast-tflite';
 import RNFS from 'react-native-fs';
+import ImageResizer from 'react-native-image-resizer';
 import jpeg from 'jpeg-js';
 
 let model = null;
 
 const CLASS_NAMES = ['broken-chipped-cut', 'dried-cherry-pod', 'floater', 'foreign-matter', 'full-black', 'full-sour', 'fungus-damage', 'good', 'husk', 'immature', 'parchment', 'partial-black', 'partial-sour', 'severe-insect-damage', 'shell', 'slight-insect-damage', 'withered'];
-const CONFIDENCE_THRESHOLD = 0.2;
+const CONFIDENCE_THRESHOLD = 0.5;
 const NMS_IOU_THRESHOLD = 0.5; // Suppress detections that overlap more than this with a higher-confidence box
-const INPUT_SIZE = 640; // Assumed square input for the model
+const INPUT_SIZE = 640; 
+// Native pre-resize so we decode a smaller image in JS (fixes ~24s jpeg-js decode on large photos).
+// 1920 keeps good detail while making decode fast (~2–5s instead of 20s+).
+const MAX_PREPROCESS_SIZE = 1920;
+
+function getResizedPath(resized) {
+  if (resized.path) return resized.path;
+  if (resized.uri && String(resized.uri).startsWith('file://')) {
+    return String(resized.uri).replace('file://', '');
+  }
+  return resized.uri || resized.path;
+}
 
 // IoU (Intersection over Union) for two boxes { x1, y1, x2, y2 }
 function iou(a, b) {
@@ -118,56 +130,49 @@ export async function initModel() {
   }
 }
 
-// Nearest‑neighbor resize from arbitrary RGBA buffer to INPUT_SIZE x INPUT_SIZE RGB float32 [0,1]
-function resizeToInputSize(decoded) {
-  const { width, height, data } = decoded; // data is RGBA Uint8Array
-  const target = new Float32Array(INPUT_SIZE * INPUT_SIZE * 3);
-
-  for (let y = 0; y < INPUT_SIZE; y++) {
-    const srcY = Math.floor((y / INPUT_SIZE) * height);
-    for (let x = 0; x < INPUT_SIZE; x++) {
-      const srcX = Math.floor((x / INPUT_SIZE) * width);
-      const srcIndex = (srcY * width + srcX) * 4; // RGBA
-      const dstIndex = (y * INPUT_SIZE + x) * 3; // RGB
-
-      const r = data[srcIndex];
-      const g = data[srcIndex + 1];
-      const b = data[srcIndex + 2];
-
-      // normalize to 0..1 as float32, matching model input dataType
-      target[dstIndex] = r / 255;
-      target[dstIndex + 1] = g / 255;
-      target[dstIndex + 2] = b / 255;
-    }
-  }
-
-  return target;
-}
-
 // Create input TypedArray from image file path
 async function createImageTensor(imagePath) {
   try {
-    // Read the image file directly so letterbox receives original dimensions
-    // and can preserve aspect ratio (scale to fit INPUT_SIZE, then pad).
+    const t0 = Date.now();
     const fsPath = imagePath.startsWith('file://') ? imagePath.replace('file://', '') : imagePath;
-    const base64 = await RNFS.readFile(fsPath, 'base64');
 
+    // Native resize first: decode a smaller image in JS (fixes very slow jpeg-js on full-res).
+    const resized = await ImageResizer.createResizedImage(
+      fsPath,
+      MAX_PREPROCESS_SIZE,
+      MAX_PREPROCESS_SIZE,
+      'JPEG',
+      90,
+      0
+    );
+    const t1 = Date.now();
+    console.log(`[PROFILE] Native resize: ${(t1 - t0)} ms`);
+
+    const pathToRead = getResizedPath(resized);
+    const base64 = await RNFS.readFile(pathToRead, 'base64');
+    const t2 = Date.now();
+    console.log(`[PROFILE] File read: ${(t2 - t1)} ms`);
+
+    const t3 = Date.now();
     const binaryString = global.atob ? global.atob(base64) : atob(base64);
     const len = binaryString.length;
     const bytes = new Uint8Array(len);
     for (let i = 0; i < len; i++) {
       bytes[i] = binaryString.charCodeAt(i);
     }
-
     const decoded = jpeg.decode(bytes, { useTArray: true });
+    const t4 = Date.now();
+    console.log(`[PROFILE] JPEG decode: ${(t4 - t3)} ms`);
 
     if (!decoded || !decoded.data) {
       throw new Error('Failed to decode JPEG');
     }
 
-    // Letterbox to INPUT_SIZE x INPUT_SIZE (preserves aspect ratio, pads with black)
+    const t5 = Date.now();
     const pixelData = letterboxToInputSize(decoded);
-
+    const t6 = Date.now();
+    console.log(`[PROFILE] Preprocess (letterbox): ${(t6 - t5)} ms`);
+    console.log(`[PROFILE] Total input tensor creation: ${(t6 - t0)} ms`);
     console.log('Created input tensor data with length:', pixelData.length);
     return pixelData;
   } catch (error) {
@@ -264,12 +269,18 @@ export async function runModelOnImage(imagePath) {
   try {
     console.log('Running inference on image:', imagePath);
 
+    const t0 = Date.now();
     const input = await createImageTensor(imagePath);
+    const t1 = Date.now();
+
     console.log('[TFLite] Calling model.runSync([input])...');
+    const t2 = Date.now();
     // Must use runSync so native can read the buffer on the same thread (run() would error).
     const result = model.runSync([input]);
-    console.log('[TFLite] runSync returned, parsing output...');
+    const t3 = Date.now();
+    console.log(`[PROFILE] Inference (model.runSync): ${(t3 - t2)} ms`);
 
+    console.log('[TFLite] runSync returned, parsing output...');
     const detections = parseDetections(result);
     return detections;
   } catch (error) {
