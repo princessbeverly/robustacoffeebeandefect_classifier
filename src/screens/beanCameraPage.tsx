@@ -3,6 +3,18 @@ import React, { useEffect, useRef } from 'react';
 import { StyleSheet, Text, View, Image, TouchableOpacity, Alert } from 'react-native';
 import { Camera, useCameraDevice, useCameraPermission } from 'react-native-vision-camera';
 import DropShadow from "react-native-drop-shadow";
+import { runModelOnImage, initModel } from '../services/tfliteService';
+
+interface Detection {
+    x1: number;
+    y1: number;
+    x2: number;
+    y2: number;
+    confidence: number;
+    classId: number;
+    label: string;
+}
+
 
 const beanCameraPage = () => {
     const camera = useRef<Camera>(null);
@@ -11,6 +23,12 @@ const beanCameraPage = () => {
 
     useEffect(() => {
         requestPermission();
+        
+        // Initialize TFLite model
+        initModel().catch(error => {
+            console.error('Failed to initialize model:', error);
+            Alert.alert('Error', 'Failed to load AI model');
+        });
     }, []);
 
     const onTakePhoto = async () => {
@@ -24,6 +42,22 @@ const beanCameraPage = () => {
             console.log("Photo captured:", photo.path);
             Alert.alert("Captured!", `Photo saved at: ${photo.path}`);
             // You can now navigate to your results page with the photo.path
+
+            try {
+
+                const results = await runModelOnImage(photo.path);
+                console.log(`Found ${results.length} detections`);
+
+                results.forEach((detection: Detection, index: number) => {
+                console.log(`Detection ${index}:`);
+                console.log(`- Class: ${detection.label}`);
+                console.log(`- Confidence: ${(detection.confidence * 100).toFixed(1)}%`);
+                console.log(`- Bounding box: (${detection.x1}, ${detection.y1}) to (${detection.x2}, ${detection.y2})`);
+                });
+                // navigate or show results as needed
+            } catch (e) {
+                console.error('Inference error:', e);
+            }
         } catch (e) {
             console.error("Failed to take photo:", e);
         }
