@@ -1,34 +1,40 @@
-
-import React, { useEffect, useRef } from 'react';
-import { StyleSheet, Text, View, Image, TouchableOpacity, Alert } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { StyleSheet, Text, View, Image, TouchableOpacity, Alert, AppState } from 'react-native';
 import { Camera, useCameraDevice, useCameraPermission } from 'react-native-vision-camera';
 import DropShadow from "react-native-drop-shadow";
-import { runModelOnImage, initModel } from '../services/tfliteService';
-
-interface Detection {
-    x1: number;
-    y1: number;
-    x2: number;
-    y2: number;
-    confidence: number;
-    classId: number;
-    label: string;
-}
-
+import { runModelOnImage, initModel, getDetectionSummary } from '../services/tfliteService';
+import { type Detection } from '../components/DetectionBoxOverlay';
+import ResultOverlay from '../components/ResultOverlay';
+import Orientation from 'react-native-orientation-locker';
+import { useIsFocused } from '@react-navigation/native'
 
 const beanCameraPage = () => {
     const camera = useRef<Camera>(null);
     const device = useCameraDevice('back');
     const { hasPermission, requestPermission } = useCameraPermission();
+    const [result, setResult] = useState<{ photoPath: string; detections: Detection[] } | null>(null);
+    const [isActive, setIsActive] = useState(true);
 
     useEffect(() => {
         requestPermission();
-        
+
         // Initialize TFLite model
         initModel().catch(error => {
             console.error('Failed to initialize model:', error);
             Alert.alert('Error', 'Failed to load AI model');
         });
+
+        // Lock orientation to portrait
+        Orientation.lockToPortrait();
+
+        // Handle app state changes to pause camera when app goes to background
+        const subscription = AppState.addEventListener('change', nextAppState => {
+            setIsActive(nextAppState === 'active');
+        });
+        return () => {
+            subscription.remove();
+            Orientation.unlockAllOrientations();
+        };
     }, []);
 
     const onTakePhoto = async () => {
@@ -41,22 +47,19 @@ const beanCameraPage = () => {
 
             console.log("Photo captured:", photo.path);
             Alert.alert("Captured!", `Photo saved at: ${photo.path}`);
-            // You can now navigate to your results page with the photo.path
 
             try {
-
                 const results = await runModelOnImage(photo.path);
                 console.log(`Found ${results.length} detections`);
-
-                results.forEach((detection: Detection, index: number) => {
-                console.log(`Detection ${index}:`);
-                console.log(`- Class: ${detection.label}`);
-                console.log(`- Confidence: ${(detection.confidence * 100).toFixed(1)}%`);
-                console.log(`- Bounding box: (${detection.x1}, ${detection.y1}) to (${detection.x2}, ${detection.y2})`);
+                const { total } = getDetectionSummary(results);
+                console.log(`Total beans: ${total}`);
+                results.forEach((d: Detection, i: number) => {
+                    console.log(`Detection ${i}: ${d.label} (${d.category}) ${(d.confidence * 100).toFixed(1)}%`);
                 });
-                // navigate or show results as needed
+                setResult({ photoPath: photo.path, detections: results });
             } catch (e) {
                 console.error('Inference error:', e);
+                Alert.alert('Inference error', String(e));
             }
         } catch (e) {
             console.error("Failed to take photo:", e);
@@ -66,17 +69,32 @@ const beanCameraPage = () => {
     if (!hasPermission) return <Text>No access to camera</Text>;
     if (device == null) return <Text>No Camera Device</Text>;
 
+    const showingResults = result != null;
+
+    const isFocused = useIsFocused();      
+
     return (
         <View style={styles.container}>
-            {/* LAYER 1 :: The Camera [Background] */}
+            {/* Keep Camera mounted; only pause session when showing results to avoid invalid session on remount */}
             <Camera
                 ref={camera}
                 style={StyleSheet.absoluteFill}
                 device={device}
-                isActive={true}
-                photo={true} // Required to capture images
+                isActive={isFocused && isActive}
+                photo={true}
+                onError={(error) => {
+                    if (error.code === "system/camera-is-restricted") {
+                    // Expected when app goes to background
+                    console.log("Camera temporarily restricted");
+                    return;
+                    }
+
+                    console.error("Camera error:", error);
+                }}
             />
 
+            {!showingResults && (
+            <>
             {/* LAYER 2 :: The Overlay*/}
             <View style={styles.overlay}>
 
@@ -157,6 +175,13 @@ const beanCameraPage = () => {
 
                 </View>
             </View>
+            </>
+            )}
+
+            {showingResults && result && (
+                <ResultOverlay result={result} onBack={() => setResult(null)} />
+            )}
+
         </View>
     );
 };
