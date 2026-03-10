@@ -5,7 +5,7 @@ import jpeg from 'jpeg-js';
 
 let model = null;
 
-const CLASS_NAMES = ['broken-chipped-cut', 'dried-cherry-pod', 'floater', 'foreign-matter', 'full-black', 'full-sour', 'fungus-damage', 'good', 'husk', 'immature', 'parchment', 'partial-black', 'partial-sour', 'severe-insect-damage', 'shell', 'slight-insect-damage', 'withered'];
+const CLASS_NAMES = ['broken-chipped-cut', 'dried-cherry-pod', 'floater', 'foreign-matter', 'foreign-matters', 'full-black', 'full-sour', 'fungus-damage', 'good', 'husk', 'immature', 'parchment', 'partial-black', 'partial-sour', 'severe-insect-damage', 'shell', 'slight-insect-damage', 'withered'];
 
 // Category mapping: good | cat1 (primary defects) | cat2 (secondary defects). Export for UI.
 export const CLASS_TO_CATEGORY = {
@@ -28,13 +28,14 @@ export const CLASS_TO_CATEGORY = {
   'broken-chipped-cut': 'cat2',
 };
 
-const CONFIDENCE_THRESHOLD = 0.5;
-const NMS_IOU_THRESHOLD = 0.5; // Suppress detections that overlap more than this with a higher-confidence box
+const CONFIDENCE_THRESHOLD = 0.3;
+const NMS_IOU_THRESHOLD = 0.7; // Suppress detections that overlap more than this with a higher-confidence box
 const INPUT_SIZE = 640; 
 // Native pre-resize so we decode a smaller image in JS (fixes ~24s jpeg-js decode on large photos).
 // 1920 keeps good detail while making decode fast (~2–5s instead of 20s+).
 const MAX_PREPROCESS_SIZE = 1920;
 
+// RNFS.readFile expects a plain filesystem path (no file:// prefix).
 function getResizedPath(resized) {
   if (resized.path) return resized.path;
   if (resized.uri && String(resized.uri).startsWith('file://')) {
@@ -43,7 +44,7 @@ function getResizedPath(resized) {
   return resized.uri || resized.path;
 }
 
-// IoU (Intersection over Union) for two boxes { x1, y1, x2, y2 }
+// IoU (Intersection over Union) for two boxes { x1, y1, x2, y2 }            
 function iou(a, b) {
   const xi1 = Math.max(a.x1, b.x1);
   const yi1 = Math.max(a.y1, b.y1);
@@ -58,31 +59,21 @@ function iou(a, b) {
   return union <= 0 ? 0 : inter / union;
 }
 
-// Non-Maximum Suppression: keep one box per object, drop overlapping lower-confidence duplicates
+// Non-Maximum Suppression: one box per physical object (class-agnostic; keeps highest-confidence per overlap)
 function nonMaxSuppression(detections) {
-  const byClass = new Map();
-  for (const d of detections) {
-    const k = d.classId;
-    if (!byClass.has(k)) byClass.set(k, []);
-    byClass.get(k).push(d);
-  }
-  const out = [];
-  for (const list of byClass.values()) {
-    list.sort((a, b) => b.confidence - a.confidence);
-    const keep = [];
-    for (const box of list) {
-      let suppressed = false;
-      for (const k of keep) {
-        if (iou(box, k) > NMS_IOU_THRESHOLD) {
-          suppressed = true;
-          break;
-        }
+  const sorted = [...detections].sort((a, b) => b.confidence - a.confidence);
+  const keep = [];
+  for (const box of sorted) {
+    let suppressed = false;
+    for (const k of keep) {
+      if (iou(box, k) > NMS_IOU_THRESHOLD) {
+        suppressed = true;
+        break;
       }
-      if (!suppressed) keep.push(box);
     }
-    out.push(...keep);
+    if (!suppressed) keep.push(box);
   }
-  return out;
+  return keep;
 }
 
 // Letterbox: scale image to fit INPUT_SIZE x INPUT_SIZE, pad with black
@@ -133,14 +124,14 @@ function letterboxToInputSize(decoded) {
       }
     }
   }
-  return target;
+  return { data: target, letterbox: { padX, padY, newWidth, newHeight } };
 }
 
 export async function initModel() {
   if (model) return;
 
   model = await loadTensorflowModel(
-    require('../assets/best_float32.tflite')
+    require('../assets/best_float32 (2).tflite')
   );
 
   console.log("Model loaded successfully");
@@ -176,7 +167,7 @@ async function createImageTensor(imagePath) {
     console.log(`[PROFILE] File read: ${(t2 - t1)} ms`);
 
     const t3 = Date.now();
-    const binaryString = global.atob ? global.atob(base64) : atob(base64);
+    const binaryString = atob(base64);
     const len = binaryString.length;
     const bytes = new Uint8Array(len);
     for (let i = 0; i < len; i++) {
@@ -191,12 +182,15 @@ async function createImageTensor(imagePath) {
     }
 
     const t5 = Date.now();
-    const pixelData = letterboxToInputSize(decoded);
+    const { data: pixelData, letterbox } = letterboxToInputSize(decoded);
     const t6 = Date.now();
     console.log(`[PROFILE] Preprocess (letterbox): ${(t6 - t5)} ms`);
     console.log(`[PROFILE] Total input tensor creation: ${(t6 - t0)} ms`);
     console.log('Created input tensor data with length:', pixelData.length);
-    return pixelData;
+
+    await RNFS.unlink(pathToRead).catch(() => {});
+
+    return { pixelData, letterbox };
   } catch (error) {
     console.error('Tensor creation error:', error);
     throw error;
@@ -205,7 +199,8 @@ async function createImageTensor(imagePath) {
 
 // Parse model output into detection objects for a single-output detection head:
 // Identity: [1, 300, 6] with [x1, y1, x2, y2, confidence, classId]
-function parseDetections(modelOutput) {
+// letterbox: { padX, padY, newWidth, newHeight } in INPUT_SIZE space; if provided, coords are remapped to content-normalized [0,1]
+function parseDetections(modelOutput, letterbox) {
   try {
     console.log('=== RAW MODEL OUTPUT ===');
     console.log('Type:', typeof modelOutput);
@@ -249,28 +244,42 @@ function parseDetections(modelOutput) {
     const maxStr = maxConfUsed === -Infinity ? 'none' : maxConfUsed.toFixed(4);
     console.log(`[TFLite] Using column 4 as confidence. Max = ${maxStr}, threshold = ${CONFIDENCE_THRESHOLD}. (If 0 detections: try lower threshold or check if confidence is in column 5.)`);
 
-    // Parse as [x1, y1, x2, y2, confidence, classId]. Model outputs pixel coords (0..INPUT_SIZE), not 0..1.
-    const scale = 1 / INPUT_SIZE;
+    let below = 0;
+    for (let i = 0; i < numDetections; i++) {
+      const conf = values[i * 6 + 4];
+      if (conf > 0.05 && conf < CONFIDENCE_THRESHOLD) below++;
+    }
+    console.log(`Detections between 0.05 and threshold: ${below}`);
+
+    // Model outputs pixel coords in 0..INPUT_SIZE. Remap to content-normalized [0,1] using letterbox so boxes align with the actual image.
+    const padX = letterbox ? letterbox.padX : 0;
+    const padY = letterbox ? letterbox.padY : 0;
+    const contentW = letterbox ? letterbox.newWidth : INPUT_SIZE;
+    const contentH = letterbox ? letterbox.newHeight : INPUT_SIZE;
+
     for (let i = 0; i < numDetections; i++) {
       const base = i * 6;
-      const x1 = values[base + 0] * scale;
-      const y1 = values[base + 1] * scale;
-      const x2 = values[base + 2] * scale;
-      const y2 = values[base + 3] * scale;
+      const px1 = values[base + 0];
+      const py1 = values[base + 1];
+      const px2 = values[base + 2];
+      const py2 = values[base + 3];
       const confidence = values[base + 4];
       const classId = values[base + 5];
 
       if (typeof confidence !== 'number' || isNaN(confidence)) continue;
       if (confidence < CONFIDENCE_THRESHOLD) continue;
 
-      const classIdx = Math.floor(classId);
+      const classIdx = Math.max(0, Math.min(CLASS_NAMES.length - 1, Math.round(classId)));
+      const clamp = (v) => Math.max(0, Math.min(1, v));
+      const x1 = contentW > 0 ? clamp((px1 - padX) / contentW) : 0;
+      const y1 = contentH > 0 ? clamp((py1 - padY) / contentH) : 0;
+      const x2 = contentW > 0 ? clamp((px2 - padX) / contentW) : 1;
+      const y2 = contentH > 0 ? clamp((py2 - padY) / contentH) : 1;
+
       const label = CLASS_NAMES[classIdx] ?? `Class ${classIdx}`;
       const category = CLASS_TO_CATEGORY[label] ?? 'cat2';
       detections.push({
-        x1: Math.max(0, Math.min(1, x1)),
-        y1: Math.max(0, Math.min(1, y1)),
-        x2: Math.max(0, Math.min(1, x2)),
-        y2: Math.max(0, Math.min(1, y2)),
+        x1, y1, x2, y2,
         confidence,
         classId: classIdx,
         label,
@@ -288,24 +297,28 @@ function parseDetections(modelOutput) {
 }
 
 /**
- * Returns total counts per class and per category from a list of detections.
+ * Returns total counts per class, per category, and total bean count from a list of detections.
  * @param {Array<{ label: string, category: string }>} detections - from parseDetections / runModelOnImage
- * @returns {{ byClass: Record<string, number>, byCategory: Record<string, number> }}
+ * @returns {{ total: number, byClass: Record<string, number>, byCategory: Record<string, number> }}
  */
 export function getDetectionSummary(detections) {
+  const total = detections.length;
   const byClass = {};
+  for (const name of CLASS_NAMES) {
+    byClass[name] = 0;
+  }
   const byCategory = { good: 0, cat1: 0, cat2: 0 };
   for (const d of detections) {
     const label = d.label ?? CLASS_NAMES[d.classId];
-    if (label) {
-      byClass[label] = (byClass[label] ?? 0) + 1;
+    if (label && byClass[label] !== undefined) {
+      byClass[label]++;
     }
     const cat = d.category ?? CLASS_TO_CATEGORY[label];
     if (cat && byCategory[cat] !== undefined) {
       byCategory[cat]++;
     }
   }
-  return { byClass, byCategory };
+  return { total, byClass, byCategory };
 }
 
 // High resolution inference for captured photos
@@ -316,18 +329,18 @@ export async function runModelOnImage(imagePath) {
     console.log('Running inference on image:', imagePath);
 
     const t0 = Date.now();
-    const input = await createImageTensor(imagePath);
+    const { pixelData, letterbox } = await createImageTensor(imagePath);
     const t1 = Date.now();
 
     console.log('[TFLite] Calling model.runSync([input])...');
     const t2 = Date.now();
     // Must use runSync so native can read the buffer on the same thread (run() would error).
-    const result = model.runSync([input]);
+    const result = model.runSync([pixelData]);
     const t3 = Date.now();
     console.log(`[PROFILE] Inference (model.runSync): ${(t3 - t2)} ms`);
 
     console.log('[TFLite] runSync returned, parsing output...');
-    const detections = parseDetections(result);
+    const detections = parseDetections(result, letterbox);
     return detections;
   } catch (error) {
     console.error("Model inference error:", error);
