@@ -2,11 +2,13 @@ import React, { useEffect, useRef, useState } from 'react';
 import { StyleSheet, Text, View, Image, TouchableOpacity, Alert, AppState } from 'react-native';
 import { Camera, useCameraDevice, useCameraPermission } from 'react-native-vision-camera';
 import DropShadow from "react-native-drop-shadow";
+import { saveFileToUserStorage } from '../services/useStorageService'; // not yet used
 import { runModelOnImage, initModel, getDetectionSummary } from '../services/tfliteService';
-import { type Detection } from '../components/DetectionBoxOverlay';
-import ResultOverlay from '../components/ResultOverlay';
+// import { type Detection } from '../components/DetectionBoxOverlay';
+// import ResultOverlay from '../components/ResultOverlay';
 import Orientation from 'react-native-orientation-locker';
 import { useIsFocused } from '@react-navigation/native'
+import { pickDirectory, types } from '@react-native-documents/picker';
 
 const beanCameraPage = () => {
     const camera = useRef<Camera>(null);
@@ -14,6 +16,7 @@ const beanCameraPage = () => {
     const { hasPermission, requestPermission } = useCameraPermission();
     const [result, setResult] = useState<{ photoPath: string; detections: Detection[] } | null>(null);
     const [isActive, setIsActive] = useState(true);
+    const [saveDirectory, setSaveDirectory] = useState<string | null>(null);
 
     useEffect(() => {
         requestPermission();
@@ -38,6 +41,7 @@ const beanCameraPage = () => {
     }, []);
 
     const onTakePhoto = async () => {
+    
         try {
             if (camera.current == null) return;
 
@@ -45,7 +49,7 @@ const beanCameraPage = () => {
                 flash: 'off'
             });
 
-            console.log("Photo captured:", photo.path);
+            console.log("Photo captured:", );
             Alert.alert("Captured!", `Photo saved at: ${photo.path}`);
 
             try {
@@ -63,6 +67,78 @@ const beanCameraPage = () => {
             }
         } catch (e) {
             console.error("Failed to take photo:", e);
+        }
+    };
+
+// Updated function
+// function for selecting directory   
+const onSelectDirectory = async () => {
+        try {
+            const directory = await pickDirectory(); // or pass options if needed
+
+            if (!directory?.uri) {
+            throw new Error('No directory selected');
+            }
+
+            setSaveDirectory(directory.uri);
+            
+            setTimeout(() => {
+            Alert.alert('Directory Set', `Will save to: ${directory.uri}`);
+            }, 100);
+        } catch (err: any) {
+            if (err?.code === 'PICKER_CANCELLED' || err?.message?.includes('cancelled')) {
+            return;
+            }
+            console.error('Directory pick error:', err);
+            Alert.alert('Error', 'Could not select directory');
+        }
+    };
+// use when saving report 
+    const ensureDirectorySelected = async (): Promise<boolean> => {
+        if (saveDirectory) return true;
+
+        try {
+            const directory = await pickDirectory();
+
+            if (!directory?.uri) {
+            Alert.alert('No directory selected', 'A save location is required to continue.');
+            return false;
+            }
+
+            setSaveDirectory(directory.uri);
+            Alert.alert('Directory Set', `Will save to: ${directory.uri}`);
+            return true;
+        } catch (err: any) {
+            if (err?.code === 'PICKER_CANCELLED' || err?.message?.includes('cancel')) {
+            return false;
+            }
+            console.error('Auto directory selection failed:', err);
+            Alert.alert('Error', 'Failed to select save directory');
+            return false;
+        }
+        };
+// WIP - onsavereport
+        const onSaveReport = async () => {
+        if (!result) {
+            Alert.alert('No scan yet', 'Take a photo first.');
+            return;
+        }
+        if (!saveDirectory) {
+            Alert.alert('No directory', 'Please select a save location first.');
+            return;
+        }
+
+        try {
+            const savedPath = await saveFileToUserStorage(
+                saveDirectory,
+                'scan_report.json',
+                JSON.stringify(result)
+            );
+            setTimeout(() => {
+                Alert.alert('Saved!', `File saved to: ${savedPath}`);
+            }, 100);
+        } catch (err) {
+            Alert.alert('Error', 'Could not save file');
         }
     };
 
@@ -144,7 +220,7 @@ const beanCameraPage = () => {
                 {/* Container for camera button (At the bottom) */}
                 <View style={styles.cameraButtonContainer}>
 
-                    <TouchableOpacity onPress={() => console.log('Open Gallery')}>
+                    <TouchableOpacity onPress={onSelectDirectory}> // select save directory
                         <DropShadow
                           style={styles.shadowStyle}
                         >
