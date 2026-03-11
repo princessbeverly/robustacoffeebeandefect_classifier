@@ -1,16 +1,21 @@
 import React, { useEffect } from 'react';
-import { StyleSheet, Text, View, Image } from 'react-native';
+import { StyleSheet, Text, View, Image, ActivityIndicator } from 'react-native';
+import { initModel } from '../services/tfliteService';
 
 const LoadPage = ({ navigation }: any) => {
     useEffect(() => {
         const prepare = async () => {
           try {
-            // simulate loading for now:
-            await new Promise(resolve => setTimeout(resolve, 2000));
+            // Initialize the AI model while the user sees the branding
+            // Promise.all ensures we wait at least 2.5s for the logo to be seen
+            await Promise.all([
+                initModel(),
+                new Promise(resolve => setTimeout(resolve, 2500))
+            ]);
           } catch (e) {
-            console.warn(e);
+            console.error("Initialization error:", e);
           } finally {
-            navigation.replace('BeanCamera'); // replace so user can't go back to load screen
+            navigation.replace('BeanCamera');
           }
         };
 
@@ -19,12 +24,19 @@ const LoadPage = ({ navigation }: any) => {
 
   return (
     <View style={styles.container}>
-      <Image
-        source={require('../../assets/logo/robusta_bean_logo.png')}
-        style={styles.logo}
-      />
-      <Text style={styles.semiboldText}>ROBUSTA</Text>
-      <Text style={styles.extralightText}>DEFECT CLASSIFIER</Text>
+      <View style={styles.centerContent}>
+          <Image
+            source={require('../../assets/logo/robusta_bean_logo.png')}
+            style={styles.logo}
+          />
+          <Text style={styles.semiboldText}>ROBUSTA</Text>
+          <Text style={styles.extralightText}>DEFECT CLASSIFIER</Text>
+      </View>
+
+      <View style={styles.loaderWrapper}>
+          <ActivityIndicator size="small" color="#775242" />
+          <Text style={styles.loadingText}>Initializing AI Model...</Text>
+      </View>
     </View>
   );
 };
@@ -32,42 +44,41 @@ const LoadPage = ({ navigation }: any) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
     backgroundColor: '#ffffff',
+    justifyContent: 'space-between',
+    paddingVertical: 100,
+    alignItems: 'center',
+  },
+  centerContent: {
+      alignItems: 'center',
   },
   semiboldText: {
       fontFamily: 'Poppins-SemiBold',
       fontSize: 25,
-      textDecorationStyle: 'solid',
-      marginBottom: -15
+      color: '#2E1D0B',
+      marginBottom: -10
   },
-  regularText: {
-      fontFamily: 'Poppins-Regular'
-      },
   extralightText: {
       fontFamily: 'Poppins-ExtraLight',
       fontSize: 17,
+      color: '#775242',
       letterSpacing: 4
-      },
-  mediumText: {
-      fontFamily: 'Poppins-Medium'
-      },
-  boldText: {
-      fontFamily: 'Poppins-Bold'
-      },
-  interRegular: {
-      fontFamily: 'Inter_18pt-Regular'
-      },
-  semiBoldCascadia: {
-      fontFamily: 'CascadiaCode-SemiBold'
-      },
+  },
   logo: {
-      width: 118.09,
-      height: 121.51,
+      width: 120,
+      height: 120,
       resizeMode: 'contain',
-      marginBottom: -15
-      }
+      marginBottom: 10
+  },
+  loaderWrapper: {
+      alignItems: 'center',
+  },
+  loadingText: {
+      marginTop: 10,
+      fontFamily: 'Poppins-Light',
+      fontSize: 12,
+      color: '#A7A7A2',
+  }
 });
 
 export default LoadPage;

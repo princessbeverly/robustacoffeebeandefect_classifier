@@ -131,7 +131,7 @@ export async function initModel() {
   if (model) return;
 
   model = await loadTensorflowModel(
-    require('../assets/best_float32 (2).tflite')
+    require('../assets/best_float32.tflite')
   );
 
   console.log("Model loaded successfully");
