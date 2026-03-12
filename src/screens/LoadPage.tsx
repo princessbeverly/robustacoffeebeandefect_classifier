@@ -10,7 +10,7 @@ const LoadPage = ({ navigation }: any) => {
             // Promise.all ensures we wait at least 2.5s for the logo to be seen
             await Promise.all([
                 initModel(),
-                new Promise(resolve => setTimeout(resolve, 2500))
+                new Promise<void>(resolve => setTimeout(resolve, 2500))
             ]);
         } catch (e) {
             console.error("Initialization error:", e);
