@@ -50,10 +50,10 @@ const reportPage = ({ navigation, route }: any) => {
 
 
     const totalDefectScore = (Math.floor(partialBlack/3)) + (Math.floor(partialSour/3)) + (Math.floor(parchmentPergamino/5)) + (Math.floor(slightInsectDamage/10)) + (Math.floor(floater/5)) + (Math.floor(immatureUnripe/5)) + (Math.floor(withered/5)) + (Math.floor(shell/5)) + (Math.floor(brokenChippedCut/5)) + (Math.floor(hullHusk/5)) + (Math.floor(severeInsectDamage/5)) + fullBlack + fullSour + driedCherryPod + fungusDamage + foreignMatter;
-    const batchIntegrity =
-        beansDetected > 0
+    const batchIntegrity = beansDetected > 0
         ? Math.max(0, Math.round(100 - ((totalDefectScore / beansDetected) * 100)))
-        : 0;
+        : 0; // Default to 0 if no beans are found
+
 
     let statusIcon;
     let statusColor;
@@ -61,27 +61,27 @@ const reportPage = ({ navigation, route }: any) => {
     let statusDescription;
     const imageUri = result.photoPath.startsWith('file://') ? result.photoPath : `file://${result.photoPath}`;
 
-    if(batchIntegrity >= 95 && batchIntegrity <= 100){
+    if(batchIntegrity >= 95 && batchIntegrity <= 100 && beansDetected > 0){
         statusIcon = require('../../assets/icons/good_result.png');
         statusColor = '#14AE5C';
         statusTitle = 'RELEASE READY';
         statusDescription = 'The sample shows minimal defects. Batch is in good condition and can move forward without intervention.';
-    }else if(batchIntegrity >= 88 && batchIntegrity <= 94){
+    }else if(batchIntegrity >= 88 && batchIntegrity <= 94 && beansDetected > 0){
         statusIcon = require('../../assets/icons/good_result.png');
         statusColor = '#14AE5C';
         statusTitle = 'ACCEPTABLE';
         statusDescription = 'The sample has a small number of defects within tolerable range. Sample can proceed but should be monitored through processing.';
-    }else if(batchIntegrity >= 75 && batchIntegrity <= 87){
+    }else if(batchIntegrity >= 75 && batchIntegrity <= 87 && beansDetected > 0){
         statusIcon = require('../../assets/icons/yellow_warning_label.png');
         statusColor = '#8D8905';
         statusTitle = 'BORDERLINE';
         statusDescription = 'The defect level is noticeable. Batch should go back to the sorting table before it moves to the next stage.';
-    }else if(batchIntegrity >= 50 && batchIntegrity <= 74){
+    }else if(batchIntegrity >= 50 && batchIntegrity <= 74 && beansDetected > 0){
         statusIcon = require('../../assets/icons/rejected_icon.png');
         statusColor = '#A71E22';
         statusTitle = 'POOR';
         statusDescription = 'The sample has a significant defect load. Do not move forward. Pull it out of the queue and schedule a full-resort.';
-    }else if(batchIntegrity >= 0 && batchIntegrity <= 49){
+    }else if(batchIntegrity >= 0 && batchIntegrity <= 49 && beansDetected > 0){
         statusIcon = require('../../assets/icons/rejected_icon.png');
         statusColor = '#A71E22';
         statusTitle = 'DISQUALIFIED';
@@ -89,8 +89,8 @@ const reportPage = ({ navigation, route }: any) => {
     }else{
         statusIcon = require('../../assets/icons/question_icon.png')
         statusColor = '#000';
-        statusTitle = 'UNKNOWN';
-        statusDescription = 'Unknown';
+        statusTitle = 'NO DATA';
+        statusDescription = "We couldn't find any beans in the image, or the device failed to detect them.";
     }
 
 
@@ -215,6 +215,8 @@ return (
                     </View> {/* :: genBox */}
                 </View> {/* :: secondSummaryContainer */}
 
+            {beansDetected > 0 ? (
+                <>
                 <View style={styles.thirdSummaryContainer}>
                     <View style={styles.catBox}>
                         <Text style={{fontFamily: 'CascadiaMono-Regular', fontSize: 25, textAlign: 'center',color: '#A81717'}}>{categoryOne}</Text>
@@ -262,6 +264,16 @@ return (
                         ))}
                     </View>
                 </View>
+                </>
+                ) : (
+
+                /* Fallback UI if no beans detected */
+                <View style={[styles.secondSummaryContainer, {justifyContent: 'center', marginBottom: 0}]}>
+                    <Text style={{fontFamily: 'CascadiaMono-Regular', color: '#A7A7A2'}}>
+                    No numerical data available
+                    </Text>
+                </View>
+                )}
             </View>
         </ScrollView>
     </View>
