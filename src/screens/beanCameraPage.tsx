@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { StyleSheet, Text, View, Image, TouchableOpacity, Alert, AppState } from 'react-native';
+import { StyleSheet, Text, View, Image, TouchableOpacity, Alert, AppState, ActivityIndicator } from 'react-native';
 import { Camera, useCameraDevice, useCameraPermission } from 'react-native-vision-camera';
 import DropShadow from "react-native-drop-shadow";
 import { runModelOnImage, initModel, getDetectionSummary } from '../services/tfliteService';
@@ -15,6 +15,8 @@ const beanCameraPage = ({navigation}: {navigation: any})  => {
     const { hasPermission, requestPermission } = useCameraPermission();
     const [result, setResult] = useState<{ photoPath: string; detections: Detection[] } | null>(null);
     const [isActive, setIsActive] = useState(true);
+    const [isCapturing, setIsCapturing] = useState(false);
+    const [isProcessing, setIsProcessing] = useState(false);
 
     useEffect(() => {
         requestPermission();
@@ -46,8 +48,13 @@ const beanCameraPage = ({navigation}: {navigation: any})  => {
                 flash: 'off'
             });
 
-            console.log("Photo captured:", photo.path);
-            Alert.alert("Captured!", `Photo saved at: ${photo.path}`);
+            setIsCapturing(true);
+
+            setTimeout(() => {
+                setIsCapturing(false);
+            }, 2000)
+
+            setIsProcessing(true);
 
             try {
                 const results = await runModelOnImage(photo.path);
@@ -55,13 +62,21 @@ const beanCameraPage = ({navigation}: {navigation: any})  => {
                 const scanResult = { photoPath: photo.path, detections: results };
                 // 2. Update state (optional, if you want to keep a history)
                 setResult(scanResult);
+
+                setIsProcessing(false);
+                setIsCapturing(false);
                 // 3. IMMEDIATELY navigate to the report page
-                navigation.navigate('reportPage', { result: scanResult });
+                navigation.navigate('reportPage', { result: scanResult, setIsProcessing });
+
+
+
             } catch (e) {
+                setIsProcessing(false);
                 console.error('Inference error:', e);
                 Alert.alert('Inference error', String(e));
             }
         } catch (e) {
+            setIsProcessing(false);
             console.error("Failed to take photo:", e);
         }
     };
@@ -103,6 +118,30 @@ const beanCameraPage = ({navigation}: {navigation: any})  => {
                     source={require('../../assets/logo/one_line_logo.png')}
                     style={styles.logo}
                 />
+
+                {isCapturing && (
+                    <View style={{
+                        position: 'center',
+                        backgroundColor: 'rgba(0,0,0,0.7)',
+                        padding: 10,
+                        borderRadius: 10,
+                        zIndex: 10 // this ensures it stays on top
+                    }}>
+                        <Text style={{ color: 'white', fontFamily: 'Poppins-Regular' }}>
+                            Photo captured successfully!
+                        </Text>
+                    </View>
+                )}
+
+                {/* 2. AI Processing Loading Spinner */}
+                {isProcessing && (
+                    <View style={styles.processingOverlay}>
+                        <ActivityIndicator size="large" color="#FFFFFF" />
+                        <Text style={[styles.semiboldText, { marginTop: 10 }]}>
+                            Analyzing Beans...
+                        </Text>
+                    </View>
+                )}
 
                 <View style={{ flex: 1 }} />
 
@@ -259,6 +298,13 @@ const styles = StyleSheet.create({
         shadowOffset: { width: 2, height: 2 },
         shadowOpacity: 0.5,
         shadowRadius: 2,
+    },
+    processingOverlay: {
+        ...StyleSheet.absoluteFillObject,
+        backgroundColor: 'rgba(0,0,0,0.6)', // Dims the camera background
+        justifyContent: 'center',
+        alignItems: 'center',
+        zIndex: 20, // Ensures it sits above everything else
     }
 });
 
