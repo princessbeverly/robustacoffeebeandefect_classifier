@@ -5,7 +5,6 @@ import ViewShot from 'react-native-view-shot';
 import { getDetectionSummary } from '../services/tfliteService';
 import DetectionBoxOverlay, { type Detection } from '../components/DetectionBoxOverlay';
 
-
 const reportPage = ({ navigation, route }: any) => {
     const result = route?.params?.result;
     const viewShotRef = useRef(null);
@@ -43,17 +42,14 @@ const reportPage = ({ navigation, route }: any) => {
     const hullHusk = byClass['hull'] || 0;
     // total counts
     const beansDetected = total || 0;
+    const officialBeans = total-foreignMatter || 0;
     const categoryOne = byCategory.cat1 || 0;
     const categoryTwo = byCategory.cat2 || 0;
-
-
-
 
     const totalDefectScore = (Math.floor(partialBlack/3)) + (Math.floor(partialSour/3)) + (Math.floor(parchmentPergamino/5)) + (Math.floor(slightInsectDamage/10)) + (Math.floor(floater/5)) + (Math.floor(immatureUnripe/5)) + (Math.floor(withered/5)) + (Math.floor(shell/5)) + (Math.floor(brokenChippedCut/5)) + (Math.floor(hullHusk/5)) + (Math.floor(severeInsectDamage/5)) + fullBlack + fullSour + driedCherryPod + fungusDamage + foreignMatter;
     const batchIntegrity = beansDetected > 0
         ? Math.max(0, Math.round(100 - ((totalDefectScore / beansDetected) * 100)))
         : 0; // Default to 0 if no beans are found
-
 
     let statusIcon;
     let statusColor;
@@ -93,7 +89,6 @@ const reportPage = ({ navigation, route }: any) => {
         statusDescription = "We couldn't find any beans in the image, or the device failed to detect them.";
     }
 
-
     // data for breakdown summary
     const catOneData = [
         {id: 1, name: 'Full Black', num: fullBlack},
@@ -117,8 +112,6 @@ const reportPage = ({ navigation, route }: any) => {
         {id: 10, name: 'Hull/Husk', num: hullHusk}
     ];
 
-
-
 return (
     <View style={styles.container}>
 
@@ -134,7 +127,12 @@ return (
             <Text style={styles.headerTitle}>RESULTS</Text>
 
             {/* Empty Placeholder to balance the 'space-between' layout */}
-            <View style={styles.placeholder} />
+            <TouchableOpacity onPress={() => navigation.goBack()}>
+                <Image
+                    source={require('../../assets/icons/download icon.png')}
+                    style={{height: 22, width: 22}}
+                />
+            </TouchableOpacity>
         </View> {/* :: head */}
 
 
@@ -209,7 +207,7 @@ return (
                         </View>
                         <View>
                             <Text style={{fontFamily: 'CascadiaMono-Regular', fontSize: 10, color: '#A7A7A1'}}>
-                            <Text style={{fontFamily: 'Poppins-SemiBold', color: '#2E1D0B'}}>{beansDetected} </Text>
+                            <Text style={{fontFamily: 'Poppins-SemiBold', color: '#2E1D0B'}}>{officialBeans} </Text>
                             TOTAL BEANS DETECTED</Text>
                         </View>
                     </View> {/* :: genBox */}
@@ -268,12 +266,48 @@ return (
                 ) : (
 
                 /* Fallback UI if no beans detected */
-                <View style={[styles.secondSummaryContainer, {justifyContent: 'center', marginBottom: 0}]}>
+                <View style={[styles.secondSummaryContainer, {justifyContent: 'center', marginBottom: '10%'}]}>
                     <Text style={{fontFamily: 'CascadiaMono-Regular', color: '#A7A7A2'}}>
                     No numerical data available
                     </Text>
                 </View>
                 )}
+                {/* Save Report Button */}
+
+                <TouchableOpacity
+                    onPress={() => {
+
+                        console.log("Saving data...");
+                        // saveReport(); // sample to call on function to save the report
+                    }}
+                    style={{ marginTop: 20, marginBottom: 40 }}
+                >
+                    <View style={{
+                        flexDirection: 'row',
+                        gap: 10,
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        width: 180,
+                        height: 48,
+                        borderWidth: 1,
+                        borderColor: '#775242',
+                        borderRadius: 15,
+                        backgroundColor: '#FFFFFF'
+                    }}>
+                        <Image
+                            source={require('../../assets/icons/download icon.png')}
+                            style={{ width: 18, height: 18, resizeMode: 'contain', tintColor: '#775242' }}
+                        />
+                        <Text style={{
+                            fontFamily: 'Poppins-Medium',
+                            fontSize: 14,
+                            color: '#775242'
+                        }}>
+                            Save Report
+                        </Text>
+                    </View>
+                </TouchableOpacity>
+
             </View>
         </ScrollView>
     </View>
@@ -396,7 +430,7 @@ const styles = StyleSheet.create({
         borderColor: '#CFCFCF',
         borderWidth: 1,
         borderRadius: 15,
-        marginBottom: 19
+        marginBottom: '20%'
     },
     row: {
         flexDirection: 'row',

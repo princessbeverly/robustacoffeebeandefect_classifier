@@ -41,11 +41,13 @@ const beanCameraPage = ({navigation}: {navigation: any})  => {
     }, []);
 
     const onTakePhoto = async () => {
+
         try {
             if (camera.current == null) return;
 
             const photo = await camera.current.takePhoto({
-                flash: 'off'
+                flash: 'off',
+                enableShutterSound: true
             });
 
             setIsCapturing(true);
