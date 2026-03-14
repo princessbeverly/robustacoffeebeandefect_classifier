@@ -1,6 +1,6 @@
 
 import React, {useRef} from 'react';
-import { StyleSheet, Text, View, Image, TouchableOpacity, ScrollView} from 'react-native';
+import { StyleSheet, Text, View, Image, TouchableOpacity, ScrollView, Alert, Modal, TextInput, Pressable} from 'react-native';
 import ViewShot from 'react-native-view-shot';
 import { getDetectionSummary } from '../services/tfliteService';
 import DetectionBoxOverlay, { type Detection } from '../components/DetectionBoxOverlay';
@@ -8,6 +8,10 @@ import DetectionBoxOverlay, { type Detection } from '../components/DetectionBoxO
 const reportPage = ({ navigation, route }: any) => {
     const result = route?.params?.result;
     const viewShotRef = useRef(null);
+
+    const [isSaving, setIsSaving] = useState(false);
+    const [titleModalVisible, setTitleModalVisible] = useState(false);
+    const [reportTitle, setReportTitle] = useState('Untitled Document');
 
     if (!result) {
         return (
@@ -22,40 +26,79 @@ const reportPage = ({ navigation, route }: any) => {
 
     const {total, byClass, byCategory} = getDetectionSummary(result.detections);
 
-    // Category 1
-    const fullBlack = byClass['full-black'] || 0;
-    const fullSour = byClass['full-sour'] || 0;
-    const driedCherryPod = byClass['dried-cherry-pod'] || 0;
-    const fungusDamage = byClass['fungus-damage'] || 0;
-    const severeInsectDamage = byClass['severe-insect-damage'] || 0;
-    const foreignMatter = byClass['foreign-matter'] || 0;
-    // Category 2
-    const partialBlack = byClass['partial-black'] || 0;
-    const partialSour = byClass['partial-sour'] || 0;
-    const parchmentPergamino = byClass['parchment'] || 0;
-    const slightInsectDamage = byClass['slight-insect-damage'] || 0;
-    const floater = byClass['floater'] || 0;
-    const immatureUnripe = byClass['immature'] || 0;
-    const withered = byClass['withered'] || 0;
-    const shell = byClass['shell'] || 0;
-    const brokenChippedCut = byClass['broken-chipped-cut'] || 0;
-    const hullHusk = byClass['hull'] || 0;
-    // total counts
-    const beansDetected = total || 0;
-    const officialBeans = total-foreignMatter || 0;
-    const categoryOne = byCategory.cat1 || 0;
-    const categoryTwo = byCategory.cat2 || 0;
 
-    const totalDefectScore = (Math.floor(partialBlack/3)) + (Math.floor(partialSour/3)) + (Math.floor(parchmentPergamino/5)) + (Math.floor(slightInsectDamage/10)) + (Math.floor(floater/5)) + (Math.floor(immatureUnripe/5)) + (Math.floor(withered/5)) + (Math.floor(shell/5)) + (Math.floor(brokenChippedCut/5)) + (Math.floor(hullHusk/5)) + (Math.floor(severeInsectDamage/5)) + fullBlack + fullSour + driedCherryPod + fungusDamage + foreignMatter;
-    const batchIntegrity = beansDetected > 0
+
+    let fullBlack: number,
+        fullSour: number,
+        driedCherryPod: number,
+        fungusDamage: number,
+        severeInsectDamage: number,
+        foreignMatter: number,
+        partialBlack: number,
+        partialSour: number,
+        parchmentPergamino: number,
+        slightInsectDamage: number,
+        floater: number,
+        immatureUnripe: number,
+        withered: number,
+        shell: number,
+        brokenChippedCut: number,
+        hullHusk: number,
+        beansDetected: number,
+        officialBeans: number,
+        categoryOne: number,
+        categoryTwo: number,
+        totalDefectScore: number,
+        batchIntegrity: number;
+
+    if (isSavedReport) {
+        ({
+            fullBlack, fullSour, driedCherryPod, fungusDamage, severeInsectDamage, foreignMatter, partialBlack, partialBlack, partialSour, parchmentPergamino, slightInsectDamage,
+            floater, immatureUnripe, withered, shell, brokenChippedCut, hullHusk,
+            beansDetected, officialBeans, categoryOne, categoryTwo, totalDefectScore, batchIntegrity
+        } = result)
+    }
+    // Category 1
+    fullBlack = byClass['full-black'] || 0;
+    fullSour = byClass['full-sour'] || 0;
+    driedCherryPod = byClass['dried-cherry-pod'] || 0;
+    fungusDamage = byClass['fungus-damage'] || 0;
+    severeInsectDamage = byClass['severe-insect-damage'] || 0;
+    foreignMatter = byClass['foreign-matter'] || 0;
+    // Category 2
+    partialBlack = byClass['partial-black'] || 0;
+    partialSour = byClass['partial-sour'] || 0;
+    parchmentPergamino = byClass['parchment'] || 0;
+    slightInsectDamage = byClass['slight-insect-damage'] || 0;
+    floater = byClass['floater'] || 0;
+    immatureUnripe = byClass['immature'] || 0;
+    withered = byClass['withered'] || 0;
+    shell = byClass['shell'] || 0;
+    brokenChippedCut = byClass['broken-chipped-cut'] || 0;
+    hullHusk = byClass['hull'] || 0;
+    // total counts
+    beansDetected = total || 0;
+    officialBeans = total-foreignMatter || 0;
+    categoryOne = byCategory.cat1 || 0;
+    categoryTwo = byCategory.cat2 || 0;
+
+    totalDefectScore = (Math.floor(partialBlack/3)) + (Math.floor(partialSour/3)) + (Math.floor(parchmentPergamino/5)) + (Math.floor(slightInsectDamage/10)) + (Math.floor(floater/5)) + (Math.floor(immatureUnripe/5)) + (Math.floor(withered/5)) + (Math.floor(shell/5)) + (Math.floor(brokenChippedCut/5)) + (Math.floor(hullHusk/5)) + (Math.floor(severeInsectDamage/5)) + fullBlack + fullSour + driedCherryPod + fungusDamage + foreignMatter;
+    batchIntegrity = beansDetected > 0
         ? Math.max(0, Math.round(100 - ((totalDefectScore / beansDetected) * 100)))
         : 0; // Default to 0 if no beans are found
 
-    let statusIcon;
-    let statusColor;
-    let statusTitle;
-    let statusDescription;
+    let statusIcon: any;
+    let statusColor: string;
+    let statusTitle: string;
+    let statusDescription: string;
     const imageUri = result.photoPath.startsWith('file://') ? result.photoPath : `file://${result.photoPath}`;
+
+    if(isSavedReport){
+        statusTitle = result.statusTitle;
+        statusDescription = result.statusDescription;
+        statusColor = result.statusColor;
+        statusIcon = result.statusIcon;
+    }
 
     if(batchIntegrity >= 95 && batchIntegrity <= 100 && beansDetected > 0){
         statusIcon = require('../../assets/icons/good_result.png');
@@ -91,27 +134,61 @@ const reportPage = ({ navigation, route }: any) => {
 
     // data for breakdown summary
     const catOneData = [
-        {id: 1, name: 'Full Black', num: fullBlack},
-        {id: 2, name: 'Full Sour', num: fullSour},
-        {id: 3, name: 'Dried Cherry/Pod', num: driedCherryPod},
-        {id: 4, name: 'Fungus Damage', num: fungusDamage},
-        {id: 5, name: 'Severe Insect Damage', num: severeInsectDamage},
-        {id: 6, name: 'Foreign Matter', num: foreignMatter}
+        {id: 1, name: 'Full Black',             num: fullBlack},
+        {id: 2, name: 'Full Sour',              num: fullSour},
+        {id: 3, name: 'Dried Cherry/Pod',       num: driedCherryPod},
+        {id: 4, name: 'Fungus Damage',          num: fungusDamage},
+        {id: 5, name: 'Severe Insect Damage',   num: severeInsectDamage},
+        {id: 6, name: 'Foreign Matter',         num: foreignMatter}
     ];
 
     const catTwoData = [
-        {id: 1, name: 'Partial Black', num: partialBlack},
-        {id: 2, name: 'Partial Sour', num: partialSour},
-        {id: 3, name: 'Parchment/Pergamino', num: parchmentPergamino},
-        {id: 4, name: 'Slight Insect Damage', num: slightInsectDamage},
-        {id: 5, name: 'Floater', num: floater},
-        {id: 6, name: 'Immature/Unripe', num: immatureUnripe},
-        {id: 7, name: 'Withered', num: withered},
-        {id: 8, name: 'Shell', num: shell},
-        {id: 9, name: 'Broken/Chipped/Cut', num: brokenChippedCut},
-        {id: 10, name: 'Hull/Husk', num: hullHusk}
+        {id: 1, name: 'Partial Black',          num: partialBlack},
+        {id: 2, name: 'Partial Sour',           num: partialSour},
+        {id: 3, name: 'Parchment/Pergamino',    num: parchmentPergamino},
+        {id: 4, name: 'Slight Insect Damage',   num: slightInsectDamage},
+        {id: 5, name: 'Floater',                num: floater},
+        {id: 6, name: 'Immature/Unripe',        num: immatureUnripe},
+        {id: 7, name: 'Withered',               num: withered},
+        {id: 8, name: 'Shell',                  num: shell},
+        {id: 9, name: 'Broken/Chipped/Cut',     num: brokenChippedCut},
+        {id: 10, name: 'Hull/Husk',             num: hullHusk}
     ];
 
+    const handleSaveConfirm = async () => {
+        setTitleModalVisible(false);
+        setIsSaving(true);
+        try {
+            await saveReport({
+                title: reportTitle.trim() || 'Untitled Document',
+                batchCount: result.detections?.length ?? 0,
+                savedAt: new Date().toISOString(),
+                result: {
+                    photoPath: result.photoPath,
+                    detections: result.detections,
+                    batchIntegrity,
+                    totalDefectScore,
+                    beansDetected,
+                    officialBeans,
+                    categoryOne,
+                    categoryTwo,
+                    statusTitle,
+                    statusDescription,
+                    statusColor,
+                    statusIcon,
+                    fullBlack, fullSour, driedCherryPod, fungusDamage, severeInsectDamage, foreignMatter,
+                    partialBlack, partialSour, parchmentPergamino, slightInsectDamage, floater,
+                    immatureUnripe, withered, shell, brokenChippedCut, hullHusk,
+                },
+            });
+            Alert.alert('Report Saved', 'Your report has been successfully saved.');
+        } catch (error) {
+            console.error('Error saving report:', error);
+            Alert.alert('Error', 'An error occurred while saving your report.');
+        } finally {
+            setIsSaving(false);
+        }
+    };
 return (
     <View style={styles.container}>
 
@@ -274,42 +351,70 @@ return (
                 )}
                 {/* Save Report Button */}
 
+                {!isSavedReport && (
                 <TouchableOpacity
-                    onPress={() => {
-
-                        console.log("Saving data...");
-                        // saveReport(); // sample to call on function to save the report
-                    }}
-                    style={{ marginTop: 20, marginBottom: 40 }}
-                >
-                    <View style={{
-                        flexDirection: 'row',
-                        gap: 10,
-                        justifyContent: 'center',
-                        alignItems: 'center',
-                        width: 180,
-                        height: 48,
-                        borderWidth: 1,
-                        borderColor: '#775242',
-                        borderRadius: 15,
-                        backgroundColor: '#FFFFFF'
-                    }}>
+                    onPress={() => setTitleModalVisible(true)}
+                    disabled={isSaving}
+                    style={{ marginTop: 20, marginBottom: 40 }}>
+                        <View style={{
+                            flexDirection: 'row',
+                            gap: 10,
+                            justifyContent: 'center',
+                            alignItems: 'center',
+                            width: 180,
+                            height: 48,
+                            borderWidth: 1,
+                            borderColor: '#775242',
+                            borderRadius: 15,
+                            backgroundColor: '#FFFFFF',
+                            opacity: isSaving ? 0.5 : 1,
+                        }}>
                         <Image
                             source={require('../../assets/icons/download icon.png')}
                             style={{ width: 18, height: 18, resizeMode: 'contain', tintColor: '#775242' }}
                         />
-                        <Text style={{
-                            fontFamily: 'Poppins-Medium',
-                            fontSize: 14,
-                            color: '#775242'
-                        }}>
-                            Save Report
+                        <Text style={{ fontFamily: 'Poppins-Medium', fontSize: 14, color: '#775242' }}>
+                            {isSaving ? 'Saving...' : 'Save Report'}
                         </Text>
-                    </View>
+                        </View>
                 </TouchableOpacity>
+                )}
 
             </View>
         </ScrollView>
+
+        <Modal
+            visible={titleModalVisible}
+            transparent
+            animationType="fade"
+            onRequestClose={() => setTitleModalVisible(false)}>
+            <Pressable style={styles.modalOverlay} onPress={() => setTitleModalVisible(false)}>
+                <Pressable style={styles.modalBox} onPress={() => {}}>
+                    <Text style={styles.modalTitle}>Name your report</Text>
+                    <TextInput
+                        style={styles.modalInput}
+                        value={reportTitle}
+                        onChangeText={setReportTitle}
+                        placeholder="Untitled Document"
+                        placeholderTextColor="#A7A7A2"
+                        autoFocus
+                    />
+                    <View style={styles.modalButtons}>
+                    <TouchableOpacity
+                        style={[styles.modalBtn, styles.modalBtnCancel]}
+                        onPress={() => setTitleModalVisible(false)}>
+                        <Text style={styles.modalBtnCancelText}>Cancel</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                        style={[styles.modalBtn, styles.modalBtnConfirm]}
+                        onPress={handleSaveConfirm}>
+                        <Text style={styles.modalBtnConfirmText}>Save</Text>
+                    </TouchableOpacity>
+                    </View>
+                </Pressable>
+            </Pressable>
+        </Modal>
+
     </View>
 );};
 
@@ -453,6 +558,70 @@ const styles = StyleSheet.create({
         fontSize: 12,
         alignItems: 'space-between',
         marginRight: 20
+    },
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.35)',
+        justifyContent: 'center',
+        alignItems: 'center'
+    },
+    modalBox: {
+        width: 300,
+        backgroundColor: '#FFFFFF',
+        borderRadius: 16,
+        padding: 24,
+        shadowColor: '#000',
+        shadowOffset: {
+            width: 0,
+            height: 2
+        },
+        shadowOpacity: 0.15,
+        shadowRadius: 12,
+        elevation: 8,
+    },
+    modalTitle: {
+        fontFamily: 'Poppins-SemiBold',
+        fontSize: 16,
+        color: '#3333333',
+        marginBottom: 16
+    },
+    modalInput: {
+        borderWidth: 1,
+        borderColor: '#E0E0E0',
+        borderRadius: 10,
+        paddingHorizontal: 14,
+        paddingVertical: 10,
+        fontFamily: 'Poppins-Regular',
+        fontSize: 14,
+        color: '#333333',
+        marginBottom: 20,
+    },
+    modalButtons: {
+        flexDirection: 'row',
+        justifyContent: 'flex-end',
+        gap: 10
+    },
+    modalBtn: {
+        paddingHorizontal: 20,
+        paddingVertical: 10,
+        borderRadius: 10
+    },
+    modalBtnCancel: {
+        borderWidth: 1,
+        borderColor: '#E0E0E0'
+    },
+    modalBtnCancelText: {
+        fontFamily: 'Poppins-Medium',
+        fontSize: 13,
+        color: '#A7A7A2'
+    },
+    modalBtnConfirm: {
+        backgroundColor: '#775242'
+    },
+    modalBtnConfirmText: {
+        fontFamily: 'Poppins-Medium',
+        fontSize: 13,
+        color: '#FFFFFF'
     }
 
 });
