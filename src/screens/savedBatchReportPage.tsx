@@ -79,7 +79,7 @@ const reportSavedBatchPage = ({ navigation }: any) => {
             <Text style={styles.cardTitle} numberOfLines={1}>
                 {item.title}
             </Text>
-            <Text style={styles.cardMeta}>Number of Batches: {item.batchCount}</Text>
+            <Text style={styles.cardMeta}>Total Number of Beans: {item.result.beansDetected}</Text>
             <Text style={styles.cardMeta}>Time Taken: {formatDate(item.savedAt)}</Text>
         </View>
 
