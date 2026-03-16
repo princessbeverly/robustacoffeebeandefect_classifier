@@ -1,5 +1,5 @@
 {
-  "name": "RobustaCoffeeDefectClassifier",
+  "name": "Robusta Defect Classifier",
   "version": "0.0.1",
   "private": true,
   "scripts": {
@@ -10,6 +10,7 @@
     "test": "jest"
   },
   "dependencies": {
+    "@react-native-async-storage/async-storage": "^1.24.0",
     "@react-native/new-app-screen": "0.84.1",
     "@react-navigation/native": "^7.1.31",
     "@react-navigation/native-stack": "^7.14.2",
@@ -23,6 +24,7 @@
     "react-native-orientation-locker": "^1.7.0",
     "react-native-safe-area-context": "^5.7.0",
     "react-native-screens": "^4.24.0",
+    "react-native-sound": "^0.13.0",
     "react-native-view-shot": "^4.0.3",
     "react-native-vision-camera": "^4.7.3"
   },
@@ -42,6 +44,7 @@
     "@types/react-test-renderer": "^19.1.0",
     "eslint": "^8.19.0",
     "jest": "^29.6.3",
+    "jetifier": "^2.0.0",
     "prettier": "^2.8.8",
     "react-test-renderer": "19.2.3",
     "typescript": "^5.8.3"
