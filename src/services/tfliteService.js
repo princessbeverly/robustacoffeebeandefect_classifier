@@ -32,8 +32,8 @@ const CONFIDENCE_THRESHOLD = 0.3;
 const NMS_IOU_THRESHOLD = 0.7; // Suppress detections that overlap more than this with a higher-confidence box
 const INPUT_SIZE = 640;
 // Native pre-resize so we decode a smaller image in JS (fixes ~24s jpeg-js decode on large photos).
-// 1920 keeps good detail while making decode fast (~2–5s instead of 20s+).
-const MAX_PREPROCESS_SIZE = 1920;
+// 1280 keeps good detail while making decode fast (~2–5s instead of 20s+).
+const MAX_PREPROCESS_SIZE = 1280;
 
 // RNFS.readFile expects a plain filesystem path (no file:// prefix).
 function getResizedPath(resized) {
@@ -131,7 +131,7 @@ export async function initModel() {
   if (model) return;
 
   model = await loadTensorflowModel(
-    require('../assets/best_float32.tflite')
+    require('../assets/best_float32 (2).tflite')
   );
 
   console.log("Model loaded successfully");
