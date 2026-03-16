@@ -6,7 +6,6 @@ import ViewShot from 'react-native-view-shot';
 import { getDetectionSummary } from '../services/tfliteService';
 import { saveReport } from '../utils/reportStorage';
 import DetectionBoxOverlay, { type Detection } from '../components/DetectionBoxOverlay';
-
 const reportPage = ({ navigation, route }: any) => {
     const result = route?.params?.result;
     const viewShotRef = useRef(null);
@@ -113,7 +112,7 @@ const reportPage = ({ navigation, route }: any) => {
         withered = byClass['withered'] || 0;
         shell = byClass['shell'] || 0;
         brokenChippedCut = byClass['broken-chipped-cut'] || 0;
-        hullHusk = byClass['hull'] || 0;
+        hullHusk = byClass['husk'] || 0;
 
         beansDetected = total || 0;
         officialBeans = (total - foreignMatter) || 0;
@@ -223,7 +222,6 @@ const reportPage = ({ navigation, route }: any) => {
             setIsSaving(false);
         }
     };
-
     return (
         <View style={styles.container}>
 
