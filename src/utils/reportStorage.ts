@@ -2,13 +2,19 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const REPORTS_KEY = 'saved_reports';
+export type ReportMeta = {
+  analyzerName?: string;
+  origin?: string;
+  producer?: string;
+  weightG?: number;
+};
 
 export interface SavedReport {
     id: string;
     title: string;
     savedAt: string;          // ISO string
     batchCount: number;       // number of batches (detections length)
-
+    meta?: ReportMeta;
   // All computed values — so the saved page never needs to recompute
     result: {
         photoPath: string;

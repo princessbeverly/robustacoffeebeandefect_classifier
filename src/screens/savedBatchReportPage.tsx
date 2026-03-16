@@ -4,6 +4,8 @@ import { StyleSheet, Text, View, Image, TouchableOpacity, FlatList, Alert, Modal
 import { useFocusEffect } from '@react-navigation/native';
 import { loadReports, deleteReport, renameReport, SavedReport } from '../utils/reportStorage';
 import { useIsFocused } from '@react-navigation/native';
+import { generateReportHTML } from '../utils/reportHtml';
+import { createPDF } from '../services/reportService';
 
 const reportSavedBatchPage = ({ navigation }: any) => {
     const [reports, setReports] = useState<SavedReport[]>([]);
@@ -18,6 +20,22 @@ const reportSavedBatchPage = ({ navigation }: any) => {
         }, []),
     );
 
+    // PDF export handler (placeholder metadata for now, will need to store real values in report storage later)
+    const handleExportPdf = async (report: SavedReport) => {
+    try {
+        const html = await generateReportHTML(report, {
+        analyzerName: report.meta?.analyzerName ?? '—',
+        origin: report.meta?.origin ?? '—',
+        producer: report.meta?.producer ?? '—',
+        weightG: report.meta?.weightG ?? 0,
+        });
+
+        const path = await createPDF(html, report.id);
+        console.log('PDF saved:', path);
+    } catch (e) {
+        console.error('Export failed:', e);
+    }
+    };
     const handleDelete = (id: string) => {
         Alert.alert(
             'Delete Report',
@@ -92,8 +110,8 @@ const reportSavedBatchPage = ({ navigation }: any) => {
                 />
             </TouchableOpacity>
 
-        {/* Save / export icon (placeholder — wire up PDF export here later) */}
-            <TouchableOpacity hitSlop={8}>
+        {/* Save / export icon */}
+            <TouchableOpacity onPress={() => handleExportPdf(item)}  hitSlop={8}>
                 <Image
                     source={require('../../assets/icons/download icon.png')}
                     style={[styles.actionIcon, { tintColor: '#14AE5C' }]}
