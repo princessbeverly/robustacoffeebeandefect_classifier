@@ -123,7 +123,9 @@ const beanCameraPage = ({navigation}: {navigation: any})  => {
 
                 {isCapturing && (
                     <View style={{
-                        position: 'center',
+                        position: 'absolute',
+                        alignSelf: 'center',
+                        top: 80,
                         backgroundColor: 'rgba(0,0,0,0.7)',
                         padding: 10,
                         borderRadius: 10,
