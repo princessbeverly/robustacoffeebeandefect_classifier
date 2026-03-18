@@ -51,7 +51,7 @@ function getGradeResult(totalDefectScore, categoryOne) {
 
 /**
  * @param {object} report - SavedReport-shaped object (id, title, savedAt, batchCount, result)
- * @param {object} [opts] - Optional: analyzerName, origin, producer, weightG
+ * @param {object} [opts] - Optional: captureName, origin, producer, weightG
  */
 export function generateReportHTML(report, opts = {}) {
 
@@ -62,7 +62,7 @@ export function generateReportHTML(report, opts = {}) {
   const score = r.batchIntegrity != null ? Math.round(r.batchIntegrity) : '—';
   const scoreColor = getIntegrityColor(r.batchIntegrity);
   const batchLabel = report?.title || 'Batch 01';
-  const analyzer = opts.analyzerName ?? '—';
+  const captureName = opts.captureName ?? '—';
   const origin = opts.origin ?? '—';
   const producer = opts.producer ?? '—';
   const weight = opts.weightG != null ? `${opts.weightG}g` : '—';
@@ -334,7 +334,7 @@ export function generateReportHTML(report, opts = {}) {
         <div class="batch-info">
           <h2>${escapeHtml(batchLabel)}</h2>
           <div class="batch-grid">
-            <span>Analyzed by <strong>${escapeHtml(analyzer)}</strong></span>
+            <span>Captured by <strong>${escapeHtml(captureName)}</strong></span>
             <span>${reportDate}</span>
 
             <span>Origin: <strong>${escapeHtml(origin)}</strong></span>
