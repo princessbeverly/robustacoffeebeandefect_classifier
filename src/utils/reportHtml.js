@@ -27,28 +27,6 @@ function getIntegrityColor(batchIntegrity) {
   else return '#A71E22';                        
 }
 
-function getGradeResult(totalDefectScore, categoryOne) {
-  const score = Number(totalDefectScore) || 0;
-  const cat1 = Number(categoryOne) || 0;
-
-  // Grade 1 is only valid when there are no Category I defects.
-  if (score <= 11) {
-    if (cat1 === 0) {
-      return 'Grade 1 — Specialty / Export Premium';
-    } else {
-      return 'Grade 2 — Fine Commercial';
-    }
-  } else if (score <= 25) {
-    return 'Grade 2 — Fine Commercial';
-  } else if (score <= 45) {
-    return 'Grade 3 — Commercial';
-  } else if (score <= 90) {
-    return 'Grade 4 — Below Commercial';
-  } else {
-    return 'Grade 5 — Off Grade / Rejected';
-  }
-}
-
 /**
  * @param {object} report - SavedReport-shaped object (id, title, savedAt, batchCount, result)
  * @param {object} [opts] - Optional: captureName, origin, producer, weightG
@@ -71,8 +49,8 @@ export function generateReportHTML(report, opts = {}) {
   const catOne = r.categoryOne ?? 0;
   const catTwo = r.categoryTwo ?? 0;
   const totalDefectScore = r.totalDefectScore ?? 0;
-  const statusTitle = getGradeResult(totalDefectScore, catOne);
-
+  const statusTitle = r.statusTitle ?? '—';
+  
   const cat1Defects = [
     { label: 'Full Black', count: r.fullBlack ?? 0 },
     { label: 'Full Sour', count: r.fullSour ?? 0 },
