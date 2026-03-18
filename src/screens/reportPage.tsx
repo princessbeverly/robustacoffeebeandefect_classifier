@@ -3,6 +3,7 @@ import React, {useRef, useState} from 'react';
 import { StyleSheet, Text, View, Image, TouchableOpacity, ScrollView,
         Alert, Modal, TextInput, Pressable} from 'react-native';
 import ViewShot from 'react-native-view-shot';
+import RNFS from 'react-native-fs';
 import { getDetectionSummary } from '../services/tfliteService';
 import { saveReport } from '../utils/reportStorage';
 import DetectionBoxOverlay, { type Detection } from '../components/DetectionBoxOverlay';
@@ -101,7 +102,7 @@ const reportPage = ({ navigation, route }: any) => {
         driedCherryPod = byClass['dried-cherry-pod'] || 0;
         fungusDamage = byClass['fungus-damage'] || 0;
         severeInsectDamage = byClass['severe-insect-damage'] || 0;
-        foreignMatter = byClass['foreign-matter'] || 0;
+        foreignMatter = byClass['foreign-matters'] || 0;
 
         partialBlack = byClass['partial-black'] || 0;
         partialSour = byClass['partial-sour'] || 0;
@@ -194,11 +195,25 @@ const reportPage = ({ navigation, route }: any) => {
         setTitleModalVisible(false);
         setIsSaving(true);
         try {
+            const sourcePhotoPath = String(result.photoPath || '').replace(/^file:\/\//, '');
+            let savedPhotoPath = sourcePhotoPath;
+
+            if (sourcePhotoPath) {
+                const imageDir = `${RNFS.DocumentDirectoryPath}/saved_reports/images`;
+                const ext = (sourcePhotoPath.match(/\.[a-zA-Z0-9]+$/)?.[0] || '.jpg').toLowerCase();
+                const imageFileName = `report_${Date.now()}_${Math.random().toString(36).slice(2, 8)}${ext}`;
+                const destinationPath = `${imageDir}/${imageFileName}`;
+
+                await RNFS.mkdir(imageDir);
+                await RNFS.copyFile(sourcePhotoPath, destinationPath);
+                savedPhotoPath = destinationPath;
+            }
+
             await saveReport({
                 title: reportTitle.trim() || 'Untitled Document',
                 batchCount: result.detections?.length ?? 0,
                 result: {
-                    photoPath: result.photoPath,
+                    photoPath: savedPhotoPath,
                     detections: result.detections,
                     batchIntegrity,
                     totalDefectScore,
