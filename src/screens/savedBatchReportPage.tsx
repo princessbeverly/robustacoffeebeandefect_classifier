@@ -2,7 +2,7 @@
 import React, { useState, useCallback } from 'react';
 import { StyleSheet, Text, View, Image, TouchableOpacity, FlatList, Alert, Modal, TextInput, Pressable} from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import { loadReports, deleteReport, renameReport, SavedReport } from '../utils/reportStorage';
+import { loadReports, deleteReport, renameReport, updateReportMeta, SavedReport } from '../utils/reportStorage';
 import { useIsFocused } from '@react-navigation/native';
 import { generateReportHTML } from '../utils/reportHtml';
 import { createPDF } from '../services/reportService';
@@ -13,6 +13,13 @@ const reportSavedBatchPage = ({ navigation }: any) => {
     const [selectedReport, setSelectedReport] = useState<SavedReport | null>(null);
     const [newTitle, setNewTitle] = useState('');
 
+    const [exportModalVisible, setExportModalVisible] = useState(false);
+    const [exportReport, setExportReport] = useState<SavedReport | null>(null);
+    const [captureName, setCaptureName] = useState('');
+    const [origin, setOrigin] = useState('');
+    const [producer, setProducer] = useState('');
+    const [weightG, setWeightG] = useState('');
+
   // Reload list every time this screen comes into focus
     useFocusEffect(
         useCallback(() => {
@@ -20,21 +27,51 @@ const reportSavedBatchPage = ({ navigation }: any) => {
         }, []),
     );
 
-    // PDF export handler (placeholder metadata for now, will need to store real values in report storage later)
-    const handleExportPdf = async (report: SavedReport) => {
-    try {
-        const html = await generateReportHTML(report, {
-        analyzerName: report.meta?.analyzerName ?? '—',
-        origin: report.meta?.origin ?? '—',
-        producer: report.meta?.producer ?? '—',
-        weightG: report.meta?.weightG ?? 0,
-        });
+    const openExportModal = (report: SavedReport) => {
+        setExportReport(report);
+        setCaptureName(report.meta?.captureName ?? '');
+        setOrigin(report.meta?.origin ?? '');
+        setProducer(report.meta?.producer ?? '');
+        setWeightG(report.meta?.weightG != null ? String(report.meta.weightG) : '');
+        setExportModalVisible(true);
+    };
 
-        const path = await createPDF(html, report.id);
-        console.log('PDF saved:', path);
-    } catch (e) {
-        console.error('Export failed:', e);
-    }
+    const handleExportPdfConfirm = async () => {
+        if (!exportReport) return;
+        try {
+            const meta = {
+                captureName: captureName.trim() || undefined,
+                origin: origin.trim() || undefined,
+                producer: producer.trim() || undefined,
+                weightG: weightG.trim() ? Number(weightG.trim()) : undefined,
+            };
+
+            if (meta.weightG != null && Number.isNaN(meta.weightG)) {
+                Alert.alert('Invalid weight', 'Please enter a valid number for weight (grams).');
+                return;
+            }
+
+            await updateReportMeta(exportReport.id, meta);
+            setReports(prev =>
+                prev.map(r => (r.id === exportReport.id ? { ...r, meta: { ...(r.meta ?? {}), ...meta } } : r)),
+            );
+
+            const html = generateReportHTML(
+                { ...exportReport, meta: { ...(exportReport.meta ?? {}), ...meta } },
+                {
+                    captureName: meta.captureName ?? '—',
+                    origin: meta.origin ?? '—',
+                    producer: meta.producer ?? '—',
+                    weightG: meta.weightG ?? 0,
+                },
+            );
+
+            const path = await createPDF(html, exportReport.title || exportReport.id);
+            setExportModalVisible(false);
+        } catch (e) {
+            console.error('Export failed:', e);
+            Alert.alert('Export failed', 'Something went wrong while creating the PDF.');
+        }
     };
     const handleDelete = (id: string) => {
         Alert.alert(
@@ -111,7 +148,7 @@ const reportSavedBatchPage = ({ navigation }: any) => {
             </TouchableOpacity>
 
         {/* Save / export icon */}
-            <TouchableOpacity onPress={() => handleExportPdf(item)}  hitSlop={8}>
+            <TouchableOpacity onPress={() => openExportModal(item)}  hitSlop={8}>
                 <Image
                     source={require('../../assets/icons/download icon.png')}
                     style={[styles.actionIcon, { tintColor: '#14AE5C' }]}
@@ -189,6 +226,62 @@ const reportSavedBatchPage = ({ navigation }: any) => {
                                 style={[styles.modalBtn, styles.modalBtnConfirm]}
                                 onPress={handleRenameConfirm}>
                                 <Text style={styles.modalBtnConfirmText}>Save</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </Pressable>
+                </Pressable>
+            </Modal>
+
+            {/* Export Meta Modal */}
+            <Modal
+                visible={exportModalVisible}
+                transparent
+                animationType="fade"
+                onRequestClose={() => setExportModalVisible(false)}>
+                <Pressable style={styles.modalOverlay} onPress={() => setExportModalVisible(false)}>
+                    <Pressable style={styles.modalBox} onPress={() => {}}>
+                        <Text style={styles.modalTitle}>Export PDF</Text>
+
+                        <TextInput
+                            style={styles.modalInput}
+                            value={captureName}
+                            onChangeText={setCaptureName}
+                            placeholder="Captured by (name)"
+                            placeholderTextColor="#A7A7A2"
+                        />
+                        <TextInput
+                            style={styles.modalInput}
+                            value={origin}
+                            onChangeText={setOrigin}
+                            placeholder="Origin (e.g. Caraga, Philippines)"
+                            placeholderTextColor="#A7A7A2"
+                        />
+                        <TextInput
+                            style={styles.modalInput}
+                            value={producer}
+                            onChangeText={setProducer}
+                            placeholder="Producer (e.g. Mang Juan)"
+                            placeholderTextColor="#A7A7A2"
+                        />
+                        <TextInput
+                            style={styles.modalInput}
+                            value={weightG}
+                            onChangeText={setWeightG}
+                            placeholder="Weight (grams)"
+                            placeholderTextColor="#A7A7A2"
+                            keyboardType="numeric"
+                        />
+
+                        <View style={styles.modalButtons}>
+                            <TouchableOpacity
+                                style={[styles.modalBtn, styles.modalBtnCancel]}
+                                onPress={() => setExportModalVisible(false)}>
+                                <Text style={styles.modalBtnCancelText}>Cancel</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={[styles.modalBtn, styles.modalBtnConfirm]}
+                                onPress={handleExportPdfConfirm}>
+                                <Text style={styles.modalBtnConfirmText}>Create PDF</Text>
                             </TouchableOpacity>
                         </View>
                     </Pressable>
