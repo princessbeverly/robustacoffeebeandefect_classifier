@@ -5,7 +5,7 @@ import jpeg from 'jpeg-js';
 
 let model = null;
 
-const CLASS_NAMES = ['broken-chipped-cut', 'dried-cherry-pod', 'floater', 'foreign-matter', 'foreign-matters', 'full-black', 'full-sour', 'fungus-damage', 'good', 'husk', 'immature', 'parchment', 'partial-black', 'partial-sour', 'severe-insect-damage', 'shell', 'slight-insect-damage', 'withered'];
+const CLASS_NAMES = ['broken-chipped-cut', 'dried-cherry-pod', 'floater', 'foreign-matters', 'full-black', 'full-sour', 'fungus-damage', 'good', 'husk', 'immature', 'parchment', 'partial-black', 'partial-sour', 'severe-insect-damage', 'shell', 'slight-insect-damage'];
 
 // Category mapping: good | cat1 (primary defects) | cat2 (secondary defects). Export for UI.
 export const CLASS_TO_CATEGORY = {
@@ -23,7 +23,6 @@ export const CLASS_TO_CATEGORY = {
   'slight-insect-damage': 'cat2',
   floater: 'cat2',
   immature: 'cat2',
-  withered: 'cat2',
   shell: 'cat2',
   'broken-chipped-cut': 'cat2',
 };
@@ -131,7 +130,7 @@ export async function initModel() {
   if (model) return;
 
   model = await loadTensorflowModel(
-    require('../assets/best_float32 (2).tflite')
+    require('../assets/best2_float16.tflite')
   );
 
   console.log("Model loaded successfully");
@@ -232,6 +231,7 @@ function parseDetections(modelOutput, letterbox) {
 
     // Log first 3 rows to see format; then max confidence we use (index 4) vs threshold
     let maxConfUsed = -Infinity;
+    let maxCoordSeen = -Infinity;
     for (let i = 0; i < numDetections; i++) {
       const base = i * 6;
       const v = (j) => (values[base + j] != null ? Number(values[base + j]).toFixed(4) : '?');
@@ -240,9 +240,19 @@ function parseDetections(modelOutput, letterbox) {
       }
       const conf = values[base + 4];
       if (typeof conf === 'number' && !isNaN(conf) && conf > maxConfUsed) maxConfUsed = conf;
+      // Track coordinate magnitudes so we can detect normalized (0..1) vs pixel (0..640) boxes.
+      for (let j = 0; j < 4; j++) {
+        const c = values[base + j];
+        if (typeof c === 'number' && !isNaN(c) && c > maxCoordSeen) maxCoordSeen = c;
+      }
     }
     const maxStr = maxConfUsed === -Infinity ? 'none' : maxConfUsed.toFixed(4);
     console.log(`[TFLite] Using column 4 as confidence. Max = ${maxStr}, threshold = ${CONFIDENCE_THRESHOLD}. (If 0 detections: try lower threshold or check if confidence is in column 5.)`);
+    const coordsAreNormalized = maxCoordSeen > -Infinity && maxCoordSeen <= 1.5;
+    console.log(
+      `[TFLite] Coord format heuristic: maxCoord=${maxCoordSeen === -Infinity ? 'none' : maxCoordSeen.toFixed(4)} → ` +
+      (coordsAreNormalized ? 'treating coords as normalized (0..1)' : `treating coords as pixels (0..${INPUT_SIZE})`)
+    );
 
     let below = 0;
     for (let i = 0; i < numDetections; i++) {
@@ -251,18 +261,20 @@ function parseDetections(modelOutput, letterbox) {
     }
     console.log(`Detections between 0.05 and threshold: ${below}`);
 
-    // Model outputs pixel coords in 0..INPUT_SIZE. Remap to content-normalized [0,1] using letterbox so boxes align with the actual image.
+    // Remap to content-normalized [0,1] using letterbox so boxes align with the actual image.
+    // Some exported models output pixel coords (0..INPUT_SIZE), others output normalized coords (0..1) over the INPUT_SIZE canvas.
     const padX = letterbox ? letterbox.padX : 0;
     const padY = letterbox ? letterbox.padY : 0;
     const contentW = letterbox ? letterbox.newWidth : INPUT_SIZE;
     const contentH = letterbox ? letterbox.newHeight : INPUT_SIZE;
+    const coordScale = coordsAreNormalized ? INPUT_SIZE : 1; // multiply normalized coords by INPUT_SIZE to get pixel coords
 
     for (let i = 0; i < numDetections; i++) {
       const base = i * 6;
-      const px1 = values[base + 0];
-      const py1 = values[base + 1];
-      const px2 = values[base + 2];
-      const py2 = values[base + 3];
+      const px1 = values[base + 0] * coordScale;
+      const py1 = values[base + 1] * coordScale;
+      const px2 = values[base + 2] * coordScale;
+      const py2 = values[base + 3] * coordScale;
       const confidence = values[base + 4];
       const classId = values[base + 5];
 
