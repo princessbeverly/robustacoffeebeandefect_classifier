@@ -1,131 +1,164 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { StyleSheet, Text, View, Image, TouchableOpacity, Alert, AppState, ActivityIndicator } from 'react-native';
+import {
+    StyleSheet, Text, View, Image,
+    TouchableOpacity, Alert, AppState, ActivityIndicator,
+} from 'react-native';
 import { Camera, useCameraDevice, useCameraPermission } from 'react-native-vision-camera';
-import DropShadow from "react-native-drop-shadow";
-import { runModelOnImage, initModel, getDetectionSummary } from '../services/tfliteService';
+import { GestureDetector, Gesture } from 'react-native-gesture-handler';
+import DropShadow from 'react-native-drop-shadow';
+import { runModelOnImage, initModel } from '../services/tfliteService';
 import { type Detection } from '../components/DetectionBoxOverlay';
-import ResultOverlay from '../screens/reportPage';
 import Orientation from 'react-native-orientation-locker';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useIsFocused } from '@react-navigation/native';
+import CameraFocusOverlay from '../components/CameraFocusOverlay';
 
-const beanCameraPage = ({navigation}: {navigation: any})  => {
+interface FocusPoint { x: number; y: number; }
+
+const beanCameraPage = ({ navigation }: { navigation: any }) => {
     const camera = useRef<Camera>(null);
     const device = useCameraDevice('back');
     const { hasPermission, requestPermission } = useCameraPermission();
+    const isFocused = useIsFocused();
+
     const [result, setResult] = useState<{ photoPath: string; detections: Detection[] } | null>(null);
     const [isActive, setIsActive] = useState(true);
     const [isCapturing, setIsCapturing] = useState(false);
     const [isProcessing, setIsProcessing] = useState(false);
+    const [focusState, setFocusState] = useState<'searching' | 'locked'>('searching');
+
+    // Tap-to-focus state
+    const [focusPoint, setFocusPoint] = useState<FocusPoint | null>(null);
+    const focusTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     useEffect(() => {
         requestPermission();
 
-        // Initialize TFLite model
         initModel().catch(error => {
             console.error('Failed to initialize model:', error);
             Alert.alert('Error', 'Failed to load AI model');
         });
 
-        // Lock orientation to portrait
         Orientation.lockToPortrait();
 
-        // Handle app state changes to pause camera when app goes to background
         const subscription = AppState.addEventListener('change', nextAppState => {
             setIsActive(nextAppState === 'active');
         });
+
         return () => {
             subscription.remove();
             Orientation.unlockAllOrientations();
+            if (focusTimeoutRef.current) clearTimeout(focusTimeoutRef.current);
         };
     }, []);
 
-    const onTakePhoto = async () => {
+    // ─── Tap-to-focus ─────────────────────────────────────────────────────────
+    const handleTapToFocus = async (x: number, y: number) => {
+        if (!device?.supportsFocus) return;
 
+        try {
+            // Show the small focus ring at the tapped point
+            setFocusPoint({ x, y });
+            setFocusState('locked');
+
+            await camera.current?.focus({ x, y });
+
+            // After 1.5s, hide the tap ring and return to idle scanning
+            if (focusTimeoutRef.current) clearTimeout(focusTimeoutRef.current);
+            focusTimeoutRef.current = setTimeout(() => {
+                setFocusPoint(null);
+                setFocusState('searching');
+            }, 1500);
+        } catch (e) {
+            // Device doesn't support tap-to-focus — fail silently
+            setFocusPoint(null);
+            setFocusState('searching');
+        }
+    };
+
+    const tapGesture = Gesture.Tap()
+        .runOnJS(true)
+        .onEnd((e) => {
+            handleTapToFocus(e.x, e.y);
+        });
+
+    // ─── Capture ──────────────────────────────────────────────────────────────
+    const onTakePhoto = async () => {
         try {
             if (camera.current == null) return;
 
             const photo = await camera.current.takePhoto({
                 flash: 'off',
-                enableShutterSound: true
+                enableShutterSound: true,
             });
 
             setIsCapturing(true);
+            setTimeout(() => setIsCapturing(false), 2000);
 
-            setTimeout(() => {
-                setIsCapturing(false);
-            }, 2000)
-
+            setFocusState('locked');
             setIsProcessing(true);
 
             try {
                 const results = await runModelOnImage(photo.path);
-                // 1. Create the result object
                 const scanResult = { photoPath: photo.path, detections: results };
-                // 2. Update state (optional, if you want to keep a history)
                 setResult(scanResult);
-
                 setIsProcessing(false);
                 setIsCapturing(false);
-                // 3. IMMEDIATELY navigate to the report page
+                setFocusPoint(null);
+                setFocusState('searching');
+
                 navigation.navigate('reportPage', { result: scanResult, setIsProcessing });
-
-
-
             } catch (e) {
                 setIsProcessing(false);
+                setFocusPoint(null);
+                setFocusState('searching');
                 console.error('Inference error:', e);
                 Alert.alert('Inference error', String(e));
             }
         } catch (e) {
             setIsProcessing(false);
-            console.error("Failed to take photo:", e);
+            setFocusPoint(null);
+            setFocusState('searching');
+            console.error('Failed to take photo:', e);
         }
     };
 
     if (!hasPermission) return <Text>No access to camera</Text>;
     if (device == null) return <Text>No Camera Device</Text>;
 
-    const showingResults = result != null;
-
-    const isFocused = useIsFocused();
-
     return (
         <View style={styles.container}>
-            {/* Keep Camera mounted; only pause session when showing results to avoid invalid session on remount */}
-            <Camera
-                ref={camera}
-                style={StyleSheet.absoluteFill}
-                device={device}
-                isActive={isFocused && isActive}
-                photo={true}
-                onError={(error) => {
-                    if (error.code === "system/camera-is-restricted") {
-                    // Expected when app goes to background
-                    console.log("Camera temporarily restricted");
-                    return;
-                    }
 
-                    console.error("Camera error:", error);
-                }}
-            />
+            {/* Camera feed wrapped in tap gesture */}
+            <GestureDetector gesture={tapGesture}>
+                <Camera
+                    ref={camera}
+                    style={StyleSheet.absoluteFill}
+                    device={device}
+                    isActive={isFocused && isActive}
+                    photo={true}
+                    onError={(error) => {
+                        if (error.code === 'system/camera-is-restricted') {
+                            console.log('Camera temporarily restricted');
+                            return;
+                        }
+                        console.error('Camera error:', error);
+                    }}
+                />
+            </GestureDetector>
 
+            {/* Overlay layer — pointerEvents box-none so taps pass through to camera */}
+            <View style={styles.overlay} pointerEvents="box-none">
 
-            <>
-            {/* LAYER 2 :: The Overlay*/}
-            <View style={styles.overlay}>
-
-                {/* Top Section */}
+                {/* Logo */}
                 <Image
                     source={require('../../assets/logo/one_line_logo.png')}
                     style={styles.logo}
                 />
 
+                {/* Capture banner */}
                 {isCapturing && (
                     <View style={{
-                        position: 'absolute',
-                        alignSelf: 'center',
-                        top: 80,
+                        position: 'center',
                         backgroundColor: 'rgba(0,0,0,0.7)',
                         padding: 10,
                         borderRadius: 10,
@@ -137,7 +170,7 @@ const beanCameraPage = ({navigation}: {navigation: any})  => {
                     </View>
                 )}
 
-                {/* 2. AI Processing Loading Spinner */}
+                {/* AI processing overlay */}
                 {isProcessing && (
                     <View style={styles.processingOverlay}>
                         <ActivityIndicator size="large" color="#FFFFFF" />
@@ -149,42 +182,39 @@ const beanCameraPage = ({navigation}: {navigation: any})  => {
 
                 <View style={{ flex: 1 }} />
 
-                {/* Camera Border */}
-                <Image
-                    source={require('../../assets/icons/cameraBorder.png')}
-                    style={styles.cameraBorder}
-                />
-
-                    {/* :: New overlay for color guide  */}
-                    <View style={styles.colorOverlay}>
-
-                        <View style={{flexDirection: 'row', justifyContent: 'space-between', marginTop: 0 }}>
-                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginRight: 10, width: 68, height: 20,}}>
-                                <Image
-                                    source={require('../../assets/icons/good_bean.png')}
-                                    style={styles.circles}
-                                />
-                                <Text style={styles.semiboldText}>GOOD</Text>
-                            </View>
-                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginRight: 10, width: 68, height: 20,}}>
-                                <Image
-                                    source={require('../../assets/icons/cat1.png')}
-                                    style={styles.circles}
-                                />
-                                <Text style={styles.semiboldText}>CAT I</Text>
-                            </View>
-                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginRight: 10, width: 68, height: 20,}}>
-                                <Image
-                                    source={require('../../assets/icons/cat2.png')}
-                                    style={styles.circles}
-                                />
-                                <Text style={styles.semiboldText}>CAT II</Text>
-                            </View>
-                        </View>
+                {/* Focus overlay:
+                    - No tap: large centered scanning box
+                    - After tap: small yellow ring snaps to tap point */}
+                {focusPoint ? (
+                    <View
+                        pointerEvents="none"
+                        style={[
+                            styles.tapFocusContainer,
+                            { left: focusPoint.x - 40, top: focusPoint.y - 40 },
+                        ]}>
+                        <CameraFocusOverlay
+                            state={focusState}
+                            size={80}
+                            cornerLength={14}
+                            cornerThickness={2}
+                            searchingColor="#facc15"
+                            lockedColor="#facc15"
+                        />
                     </View>
+                ) : (
+                    <CameraFocusOverlay
+                        state={focusState}
+                        size={280}
+                        cornerLength={32}
+                        cornerThickness={3}
+                        searchingColor="#4ade80"
+                        lockedColor="#facc15"
+                    />
+                )}
+
                 <View style={{ flex: 1 }} />
 
-                {/* Container for camera button (At the bottom) */}
+                {/* Bottom controls */}
                 <View style={styles.cameraButtonContainer}>
 
                     <TouchableOpacity onPress={() => navigation.navigate('savedBatchReportPage')}>
@@ -197,7 +227,6 @@ const beanCameraPage = ({navigation}: {navigation: any})  => {
                     </TouchableOpacity>
 
                     <TouchableOpacity onPress={onTakePhoto} activeOpacity={0.7}>
-
                         <Image
                             source={require('../../assets/icons/camera_button.png')}
                             style={styles.cameraButton}
@@ -209,10 +238,9 @@ const beanCameraPage = ({navigation}: {navigation: any})  => {
                             if (result) {
                                 navigation.navigate('reportPage', { result });
                             } else {
-                                Alert.alert("No Data", "Take a photo first");
+                                Alert.alert('No Data', 'Take a photo first');
                             }
                         }}>
-
                         <DropShadow style={styles.shadowStyle}>
                             <Image
                                 source={require('../../assets/icons/results_icon.png')}
@@ -221,18 +249,8 @@ const beanCameraPage = ({navigation}: {navigation: any})  => {
                         </DropShadow>
                     </TouchableOpacity>
 
-                    {/*
-                        {showingResults && result && (
-                            <ResultOverlay result={result} onBack={() => setResult(null)} />
-                        )}
-                    */}
-
                 </View>
             </View>
-            </>
-            }
-
-
 
         </View>
     );
@@ -242,10 +260,6 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: '#000',
-    },
-    colorOverlay: {
-        alignItems: 'center',
-        padding: 10,
     },
     overlay: {
         ...StyleSheet.absoluteFillObject,
@@ -261,10 +275,12 @@ const styles = StyleSheet.create({
         textShadowOffset: { width: 1, height: 1 },
         textShadowRadius: 2,
     },
-    cameraBorder: {
-        width: 550,
-        height: 550,
-        resizeMode: 'contain',
+    captureBanner: {
+        backgroundColor: 'rgba(0,0,0,0.7)',
+        paddingHorizontal: 14,
+        paddingVertical: 8,
+        borderRadius: 10,
+        zIndex: 10,
     },
     cameraButtonContainer: {
         flex: 1,
@@ -283,33 +299,33 @@ const styles = StyleSheet.create({
     extraIcons: {
         width: 30,
         height: 30,
-        resizeMode: 'contain'
+        resizeMode: 'contain',
     },
     logo: {
         width: 249,
         height: 37.48,
         resizeMode: 'contain',
         marginTop: 50,
-        marginBottom: 10
-    },
-    circles: {
-        resizeMode: 'contain',
-        width: 18,
-        height: 18
+        marginBottom: 10,
     },
     shadowStyle: {
-        shadowColor: "#000",
+        shadowColor: '#000',
         shadowOffset: { width: 2, height: 2 },
         shadowOpacity: 0.5,
         shadowRadius: 2,
     },
     processingOverlay: {
         ...StyleSheet.absoluteFillObject,
-        backgroundColor: 'rgba(0,0,0,0.6)', // Dims the camera background
+        backgroundColor: 'rgba(0,0,0,0.6)',
         justifyContent: 'center',
         alignItems: 'center',
-        zIndex: 20, // Ensures it sits above everything else
-    }
+        zIndex: 20,
+    },
+    tapFocusContainer: {
+        position: 'absolute',
+        width: 80,
+        height: 80,
+    },
 });
 
 export default beanCameraPage;

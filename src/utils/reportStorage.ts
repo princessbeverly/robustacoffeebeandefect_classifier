@@ -1,4 +1,4 @@
-// utils/reportStorage.ts
+
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import RNFS from 'react-native-fs';
 
