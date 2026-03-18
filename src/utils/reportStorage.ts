@@ -1,14 +1,21 @@
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import RNFS from 'react-native-fs';
 
 const REPORTS_KEY = 'saved_reports';
+export type ReportMeta = {
+  captureName?: string;
+  origin?: string;
+  producer?: string;
+  weightG?: number;
+};
 
 export interface SavedReport {
     id: string;
     title: string;
     savedAt: string;          // ISO string
-    batchCount:  number;       // number of batches (detections length)
-
+    batchCount: number;       // number of batches (detections length)
+    meta?: ReportMeta;
   // All computed values — so the saved page never needs to recompute
     result: {
         photoPath: string;
@@ -86,6 +93,40 @@ export async function renameReport(id: string, newTitle: string): Promise<void> 
 /** Delete a report by id */
 export async function deleteReport(id: string): Promise<void> {
     const existing = await loadReports();
+    const reportToDelete = existing.find(r => r.id === id);
     const filtered = existing.filter(r => r.id !== id);
+
+    const photoPath = reportToDelete?.result?.photoPath;
+    if (photoPath) {
+        try {
+            const normalizedPath = String(photoPath).replace(/^file:\/\//, '');
+            if (normalizedPath.includes('/saved_reports/images/')) {
+                const exists = await RNFS.exists(normalizedPath);
+                if (exists) {
+                    await RNFS.unlink(normalizedPath);
+                }
+            }
+        } catch {
+            // Keep deleting the report record even if image cleanup fails.
+        }
+    }
+
     await AsyncStorage.setItem(REPORTS_KEY, JSON.stringify(filtered));
+}
+
+/** Update (merge) report meta by id */
+export async function updateReportMeta(id: string, meta: ReportMeta): Promise<void> {
+    const existing = await loadReports();
+    const updated = existing.map(r =>
+        r.id === id
+            ? {
+                  ...r,
+                  meta: {
+                      ...(r.meta ?? {}),
+                      ...(meta ?? {}),
+                  },
+              }
+            : r,
+    );
+    await AsyncStorage.setItem(REPORTS_KEY, JSON.stringify(updated));
 }

@@ -157,7 +157,13 @@ const beanCameraPage = ({ navigation }: { navigation: any }) => {
 
                 {/* Capture banner */}
                 {isCapturing && (
-                    <View style={styles.captureBanner}>
+                    <View style={{
+                        position: 'center',
+                        backgroundColor: 'rgba(0,0,0,0.7)',
+                        padding: 10,
+                        borderRadius: 10,
+                        zIndex: 10 // this ensures it stays on top
+                    }}>
                         <Text style={{ color: 'white', fontFamily: 'Poppins-Regular' }}>
                             Photo captured successfully!
                         </Text>
