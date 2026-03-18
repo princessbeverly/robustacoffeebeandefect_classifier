@@ -5,7 +5,7 @@ import jpeg from 'jpeg-js';
 
 let model = null;
 
-const CLASS_NAMES = ['broken-chipped-cut', 'dried-cherry-pod', 'floater', 'foreign-matters', 'full-black', 'full-sour', 'fungus-damage', 'good', 'husk', 'immature', 'parchment', 'partial-black', 'partial-sour', 'severe-insect-damage', 'shell', 'slight-insect-damage'];
+const CLASS_NAMES = ['broken-chipped-cut', 'dried-cherry-pod', 'floater', 'foreign-matter','foreign-matters', 'full-black', 'full-sour', 'fungus-damage', 'good', 'husk', 'immature', 'parchment', 'partial-black', 'partial-sour', 'severe-insect-damage', 'shell', 'slight-insect-damage', 'withered'];
 
 // Category mapping: good | cat1 (primary defects) | cat2 (secondary defects). Export for UI.
 export const CLASS_TO_CATEGORY = {
@@ -16,6 +16,7 @@ export const CLASS_TO_CATEGORY = {
   'fungus-damage': 'cat1',
   'severe-insect-damage': 'cat1',
   'foreign-matter': 'cat1',
+  'foreign-matters': 'cat1',
   'partial-black': 'cat2',
   'partial-sour': 'cat2',
   husk: 'cat2',
@@ -130,7 +131,7 @@ export async function initModel() {
   if (model) return;
 
   model = await loadTensorflowModel(
-    require('../assets/best2_float16.tflite')
+    require('../assets/yolov26n-uncropped-renie_float32.tflite')  
   );
 
   console.log("Model loaded successfully");
