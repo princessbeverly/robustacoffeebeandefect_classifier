@@ -2,8 +2,28 @@ import { generatePDF } from 'react-native-html-to-pdf';
 import { Alert, Platform, PermissionsAndroid } from 'react-native';
 import RNFS from 'react-native-fs';
 
-export const createPDF = async (html, batchId) => {
-  const safeFileName = String(batchId || 'report').replace(/[^\w-]/g, '_');
+function toSafeFileName(value) {
+  const base = String(value ?? '')
+    .trim()
+    .replace(/\.[^.]+$/, '')
+    .replace(/[<>:"/\\|?*\x00-\x1F]/g, '_')
+    .replace(/\s+/g, '_')
+    .replace(/_+/g, '_')
+    .replace(/^[_\.\s-]+|[_\.\s-]+$/g, '');
+
+  const normalized = base || 'report';
+  const truncated = normalized.slice(0, 80);
+
+  // Avoid Windows-reserved base names for cross-platform safety.
+  if (/^(con|prn|aux|nul|com[1-9]|lpt[1-9])$/i.test(truncated)) {
+    return `_${truncated}`;
+  }
+
+  return truncated;
+}
+
+export const createPDF = async (html, fileNameHint) => {
+  const safeFileName = toSafeFileName(fileNameHint);
 
   if (Platform.OS === 'android') {
     const granted = await PermissionsAndroid.request(
