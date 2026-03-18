@@ -1,11 +1,11 @@
 
 import React, {useRef, useState} from 'react';
-import { StyleSheet, Text, View, Image, TouchableOpacity, ScrollView,
-        Alert, Modal, TextInput, Pressable} from 'react-native';
+import { StyleSheet, Text, View, Image, TouchableOpacity, ScrollView, Alert, Modal, TextInput, Pressable} from 'react-native';
 import ViewShot from 'react-native-view-shot';
 import { getDetectionSummary } from '../services/tfliteService';
 import { saveReport } from '../utils/reportStorage';
 import DetectionBoxOverlay, { type Detection } from '../components/DetectionBoxOverlay';
+import ZoomableDetectionView from '../components/ZoomableDetectionView';
 
 const reportPage = ({ navigation, route }: any) => {
     const result = route?.params?.result;
@@ -14,7 +14,10 @@ const reportPage = ({ navigation, route }: any) => {
     const isSavedReport = route?.params?.isSavedReport ?? false;
     const [isSaving, setIsSaving] = useState(false);
     const [titleModalVisible, setTitleModalVisible] = useState(false);
-    const [reportTitle, setReportTitle] = useState('Untitled Document');
+    const [reportTitle, setReportTitle] = useState('Cluster Report #');
+
+    // toggle feature :: user can choose to remove bounding boxes or not
+    const [showBoxes, setShowBoxes] = useState(true);
 
     if (!result) {
         return (
@@ -272,15 +275,32 @@ const reportPage = ({ navigation, route }: any) => {
                         </View>
                     </View>
 
-                    <ViewShot ref={viewShotRef} options={{ format: 'jpg', quality: 0.9 }}>
+                    {/* Hidden snapshot target — always full view, never zoomed */}
+                    <ViewShot ref={viewShotRef} options={{ format: 'jpg', quality: 0.9 }}
+                        style={{ position: 'absolute', opacity: 0, pointerEvents: 'none' }}>
                         <DetectionBoxOverlay
                             imageSource={{ uri: imageUri }}
-                            detections={result.detections}
-                            showLabels
+                            detections={showBoxes ? result.detections : []}
+                            showLabels={showBoxes}
                             colorByCategory
-                            style={{width: 306, height: 400, resizeMode: 'contain', backgroundColor: '#FFFFFF', marginTop: 20, marginBottom: 20}}
+                            style={{ width: 306, height: 400, resizeMode: 'contain', backgroundColor: '#FFFFFF' }}
                         />
                     </ViewShot>
+
+                    {/* Visible zoomable version */}
+                    <View style={{  width: 306, height: 400, marginTop: 20, marginBottom: 20 }}>
+                        <ZoomableDetectionView
+                            imageUri={imageUri}
+                            detections={result.detections}
+                            width={306}
+                            height={400}
+                            showBoxes = {showBoxes}
+                        />
+                    </View>
+
+                    <TouchableOpacity onPress={() => setShowBoxes(prev => !prev)}>
+                        <Text style={{fontFamily: 'Poppins-Regular', fontSize: 12, marginBottom: 20, alignSelf: 'center', borderWidth: 1, borderColor: '#A7A7A2', borderRadius: 15, paddingHorizontal: 10}}>{showBoxes ? 'Hide Boxes' : 'Show Boxes'}</Text>
+                    </TouchableOpacity>
 
                     <View style={{borderColor: '#A7A7A2', borderBottomWidth: 1, borderStyle: 'solid', width: 306}}></View>
 
