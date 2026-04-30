@@ -6,7 +6,7 @@ function toSafeFileName(value) {
   const base = String(value ?? '')
     .trim()
     .replace(/\.[^.]+$/, '')
-    .replace(/[<>:"/\\|?*\x00-\x1F]/g, '_')
+    .replace(/[<>:"/\\|?*#\x00-\x1F]/g, '_')
     .replace(/\s+/g, '_')
     .replace(/_+/g, '_')
     .replace(/^[_\.\s-]+|[_\.\s-]+$/g, '');
@@ -27,7 +27,7 @@ export const createPDF = async (html, fileNameHint) => {
 
   if (Platform.OS === 'android') {
     const granted = await PermissionsAndroid.request(
-      PermissionsAndroid.PERMISSIONS.WRITE_EXTERNAL_STORAGE,
+      'android.permission.MANAGE_EXTERNAL_STORAGE',
     );
     console.log('Storage permission:', granted);
   }
