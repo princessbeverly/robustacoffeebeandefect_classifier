@@ -1,97 +1,100 @@
-This is a new [**React Native**](https://reactnative.dev) project, bootstrapped using [`@react-native-community/cli`](https://github.com/react-native-community/cli).
+# Robusta Coffee Defect Classifier ☕📱
 
-# Getting Started
+An intelligent mobile application designed to help coffee producers, roasters, and enthusiasts identify and classify defects in Robusta coffee beans using image processing and automated reporting.
 
-> **Note**: Make sure you have completed the [Set Up Your Environment](https://reactnative.dev/docs/set-up-your-environment) guide before proceeding.
+## 🌟 Overview
 
-## Step 1: Start Metro
+The Robusta Coffee Defect Classifier streamlines the quality control process of green coffee beans. By analyzing images of coffee batches, the app detects bean counts and identifies specific defects, allowing users to save digital records and export professional PDF quality reports.
 
-First, you will need to run **Metro**, the JavaScript build tool for React Native.
+### Key Features
 
-To start the Metro dev server, run the following command from the root of your React Native project:
+* **Batch Scanning:** Uses image analysis to detect total bean count and defect types.
+* **Local Storage:** Save, rename, and manage historical batch reports locally on the device.
+* **Meta-Data Management:** Attach producer details, origin (e.g., Caraga, Philippines), and weight to specific batches.
+* **PDF Export:** Generate professional PDF reports including batch statistics and metadata for sharing with buyers or quality inspectors.
+* **Clean UI:** A minimalist, user-friendly interface built with React Native and Poppins typography.
 
-```sh
-# Using npm
-npm start
+## 🚀 Technical Stack
 
-# OR using Yarn
-yarn start
+* **Framework:** React Native (TypeScript)
+* **Navigation:** React Navigation
+* **Storage:** Custom local storage utility for persistent report management.
+* **PDF Generation:** react-native-html-to-pdf (or similar service) via reportService.
+* **Styling:** StyleSheet with custom Poppins fonts.
+
+## 📂 Project Structure (Highlights)
+
+```
+src/
+├── assets/             # Icons, images, and brand assets
+├── screens/            
+│   ├── savedBatchReportPage.tsx  # View & manage saved reports (Files screen)
+│   ├── reportPage.tsx            # Detailed view of a specific scan
+│   └── ...
+├── services/           
+│   └── reportService.ts          # Logic for PDF creation and sharing
+└── utils/              
+    ├── reportStorage.ts          # CRUD operations for local report files
+    └── reportHtml.ts             # HTML templates for PDF rendering
 ```
 
-## Step 2: Build and run your app
+## 🛠️ Installation & Setup
 
-With Metro running, open a new terminal window/pane from the root of your React Native project, and use one of the following commands to build and run your Android or iOS app:
+### Prerequisites
 
-### Android
+* Node.js (v16+)
+* React Native CLI or Expo CLI
+* Android Studio (for Android) / Xcode (for iOS)
 
-```sh
-# Using npm
-npm run android
+### Steps
 
-# OR using Yarn
-yarn android
+1. **Clone the repository:**
+
+```bash
+git clone https://github.com/yourusername/RobustaCoffeeDefectClassifier.git
+cd RobustaCoffeeDefectClassifier
 ```
 
-### iOS
+2. **Install dependencies:**
 
-For iOS, remember to install CocoaPods dependencies (this only needs to be run on first clone or after updating native deps).
-
-The first time you create a new project, run the Ruby bundler to install CocoaPods itself:
-
-```sh
-bundle install
+```bash
+npm install
+# or
+yarn install
 ```
 
-Then, and every time you update your native dependencies, run:
+3. **Install CocoaPods (iOS only):**
 
-```sh
-bundle exec pod install
+```bash
+cd ios && pod install && cd ..
 ```
 
-For more information, please visit [CocoaPods Getting Started guide](https://guides.cocoapods.org/using/getting-started.html).
+4. **Run the application:**
 
-```sh
-# Using npm
-npm run ios
+```bash
+# For Android
+npx react-native run-android
 
-# OR using Yarn
-yarn ios
+# For iOS
+npx react-native run-ios
 ```
 
-If everything is set up correctly, you should see your new app running in the Android Emulator, iOS Simulator, or your connected device.
+## 📖 How to Use
 
-This is one way to run your app — you can also build it directly from Android Studio or Xcode.
+1. **Scan:** Navigate to the scan screen and capture/upload an image of your coffee beans.
+2. **Review:** View the detected defect count and total bean stats on the `reportPage`.
+3. **Save:** Save the report to your device.
+4. **Manage:** Go to the Files screen (`savedBatchReportPage`) to:
 
-## Step 3: Modify your app
+   * Rename reports for better organization.
+   * Export to PDF by adding metadata like Producer and Origin.
+   * Delete old records.
 
-Now that you have successfully run the app, let's make changes!
+## 🎨 Design Assets
 
-Open `App.tsx` in your text editor of choice and make some changes. When you save, your app will automatically update and reflect these changes — this is powered by [Fast Refresh](https://reactnative.dev/docs/fast-refresh).
+The app uses a specific color palette for status and branding:
 
-When you want to forcefully reload, for example to reset the state of your app, you can perform a full reload:
-
-- **Android**: Press the <kbd>R</kbd> key twice or select **"Reload"** from the **Dev Menu**, accessed via <kbd>Ctrl</kbd> + <kbd>M</kbd> (Windows/Linux) or <kbd>Cmd ⌘</kbd> + <kbd>M</kbd> (macOS).
-- **iOS**: Press <kbd>R</kbd> in iOS Simulator.
-
-## Congratulations! :tada:
-
-You've successfully run and modified your React Native App. :partying_face:
-
-### Now what?
-
-- If you want to add this new React Native code to an existing application, check out the [Integration guide](https://reactnative.dev/docs/integration-with-existing-apps).
-- If you're curious to learn more about React Native, check out the [docs](https://reactnative.dev/docs/getting-started).
-
-# Troubleshooting
-
-If you're having issues getting the above steps to work, see the [Troubleshooting](https://reactnative.dev/docs/troubleshooting) page.
-
-# Learn More
-
-To learn more about React Native, take a look at the following resources:
-
-- [React Native Website](https://reactnative.dev) - learn more about React Native.
-- [Getting Started](https://reactnative.dev/docs/environment-setup) - an **overview** of React Native and how setup your environment.
-- [Learn the Basics](https://reactnative.dev/docs/getting-started) - a **guided tour** of the React Native **basics**.
-- [Blog](https://reactnative.dev/blog) - read the latest official React Native **Blog** posts.
-- [`@facebook/react-native`](https://github.com/facebook/react-native) - the Open Source; GitHub **repository** for React Native.
+* **Primary Brown:** #775242 (Branding & Confirmation)
+* **Export Green:** #14AE5C (PDF Export)
+* **Delete Red:** #A71E22 (Destructive Actions)
+* **Text/Meta:** #333333 / #A7A7A2
