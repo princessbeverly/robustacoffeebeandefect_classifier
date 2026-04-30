@@ -1,8 +1,8 @@
-# Robusta Coffee Defect Classifier ☕📱
+# Robusta Coffee Defect Classifier 
 
 An intelligent mobile application designed to help coffee producers, roasters, and enthusiasts identify and classify defects in Robusta coffee beans using image processing and automated reporting.
 
-## 🌟 Overview
+##  Overview
 
 The Robusta Coffee Defect Classifier streamlines the quality control process of green coffee beans. By analyzing images of coffee batches, the app detects bean counts and identifies specific defects, allowing users to save digital records and export professional PDF quality reports.
 
@@ -14,7 +14,7 @@ The Robusta Coffee Defect Classifier streamlines the quality control process of 
 * **PDF Export:** Generate professional PDF reports including batch statistics and metadata for sharing with buyers or quality inspectors.
 * **Clean UI:** A minimalist, user-friendly interface built with React Native and Poppins typography.
 
-## 🚀 Technical Stack
+##  Technical Stack
 
 * **Framework:** React Native (TypeScript)
 * **Navigation:** React Navigation
@@ -22,7 +22,7 @@ The Robusta Coffee Defect Classifier streamlines the quality control process of 
 * **PDF Generation:** react-native-html-to-pdf (or similar service) via reportService.
 * **Styling:** StyleSheet with custom Poppins fonts.
 
-## 📂 Project Structure (Highlights)
+##  Project Structure (Highlights)
 
 ```
 src/
@@ -38,7 +38,7 @@ src/
     └── reportHtml.ts             # HTML templates for PDF rendering
 ```
 
-## 🛠️ Installation & Setup
+##  Installation & Setup
 
 ### Prerequisites
 
@@ -79,7 +79,7 @@ npx react-native run-android
 npx react-native run-ios
 ```
 
-## 📖 How to Use
+##  How to Use
 
 1. **Scan:** Navigate to the scan screen and capture/upload an image of your coffee beans.
 2. **Review:** View the detected defect count and total bean stats on the `reportPage`.
@@ -89,12 +89,3 @@ npx react-native run-ios
    * Rename reports for better organization.
    * Export to PDF by adding metadata like Producer and Origin.
    * Delete old records.
-
-## 🎨 Design Assets
-
-The app uses a specific color palette for status and branding:
-
-* **Primary Brown:** #775242 (Branding & Confirmation)
-* **Export Green:** #14AE5C (PDF Export)
-* **Delete Red:** #A71E22 (Destructive Actions)
-* **Text/Meta:** #333333 / #A7A7A2
