@@ -28,12 +28,12 @@ export const CLASS_TO_CATEGORY = {
   'broken-chipped-cut': 'cat2',
 };
 
-const CONFIDENCE_THRESHOLD = 0.3;
+const CONFIDENCE_THRESHOLD = 0.382;
 const NMS_IOU_THRESHOLD = 0.7; // Suppress detections that overlap more than this with a higher-confidence box
 const INPUT_SIZE = 640;
 // Native pre-resize so we decode a smaller image in JS (fixes ~24s jpeg-js decode on large photos).
 // 1280 keeps good detail while making decode fast (~2–5s instead of 20s+).
-const MAX_PREPROCESS_SIZE = 1280;
+const MAX_PREPROCESS_SIZE = 1920;
 
 // RNFS.readFile expects a plain filesystem path (no file:// prefix).
 function getResizedPath(resized) {
